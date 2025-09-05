@@ -1,0 +1,343 @@
+---
+title: 'West Vancouver Library - Preliminary Indoor AQ Data'
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    number_sections: no
+    toc: yes
+    fig_caption: yes
+  word_document:
+    toc: no
+  html_document:
+    df_print: paged
+    toc: yes
+authors: Hugo Dignoes Ricart, Caroline Webber, and Prof. Naomi Zimmerman
+---
+
+\newpage
+
+```{r setup, include=FALSE}
+library(patchwork)
+library(rmarkdown)
+library(openair)
+library(gtools)
+library(ggplot2)
+library(caret)
+library(plyr)
+library(dplyr)
+library(readr)
+library(purrr)
+library(tidyr)
+library(kableExtra)
+library(tidyverse)
+library(captioner)
+library(lubridate)
+library(latticeExtra)
+library(worldmet)
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+```
+
+```{r, include = FALSE}
+set.seed(1703)
+fig_cap <- captioner::captioner()
+tab_cap <- captioner::captioner("Table")
+```
+
+```{r Load and Subset Data, include = FALSE, message = FALSE, warning = FALSE}
+# Load data
+data <- read.csv("calibrated_predictions.csv")
+
+# Convert date column
+data$date <- as.POSIXct(data$date, format = "%m/%d/%Y %H:%M", tz="Etc/GMT-8")
+
+# Remove first 4 rows
+data <- data[-c(1:14), ]
+
+# Rename columns
+names(data)[names(data) == "NO2..ppb."] <- "NO2"
+names(data)[names(data) == "NO..ppb."] <- "NO"
+names(data)[names(data) == "CO2..ppm."] <- "CO2"
+names(data)[names(data) == "O3..ppb."] <- "O3"
+names(data)[names(data) == "CO..ppm."] <- "CO"
+names(data)[names(data) == "PM2_5.ug.m3."] <- "PM2_5"
+
+# Define pollutants and their units
+pollutants <- c("NO2", "NO", "CO2", "O3", "CO", "PM2_5")
+units <- list(
+  NO2 = "ppb",
+  NO = "ppb",
+  CO2 = "ppm",
+  O3 = "ppb",
+  CO = "ppm",
+  PM2_5 = "µg/m³"
+)
+```
+
+# Background and Introduction
+This report provides the results of air monitoring that was conducted at your facility from April 29 to May 9th 2025.
+
+The patterns and levels of NO, NO~2~, PM~2.5~, CO, CO~2~, and O~3~ inside the library will be summarized with a series of functions and plots found in the R package ‘openair’ [D. C. Carslaw and Ropkins (2012)]. While outdoor data was also collected, QA/QC algorithms are currently being finalized. To our knowledge, there were no major outdoor air quality incidents during this period, so for outdoor air quality please refer to the regional Metro Vancouver data, which will be similar to measured air quality outside your facility. Location-specific outdoor air quality will be available once calibration algorithms are finalized.
+
+The purpose of this report is to provide the reader with a better understanding of the following:
+
+* Reading and interpreting Time Series, Hourly Average, and Box plots
+
+If you have questions about this report, please email Prof. Naomi Zimmerman, Caroline Webber or Hugo Dignoes Ricart at  [HelloAirQuality@mech.ubc.ca](mailto:HelloAirQuality@mech.ubc.ca) 
+
+# Study Instrumentation
+
+To collect the air pollutant data at your facility, a low-cost air pollutant sensor, the SENSIT RAMP (remote air quality monitoring platform) was deployed. Low-cost sensors are powerful tools that can be used to make air pollution data more accessible. However, because these sensors are lower-cost, it is possible for the sensors to fail, and calibrations must be performed on the raw data to ensure accuracy. Once the sensors are properly calibrated, their data are generally reliable. The reported data has been calibrated.
+
+# How we are summarizing air pollution data
+
+## Time Series Plots
+
+A time series plots the concentration of a given pollutant against time to visualize the variation of each pollutant over the monitoring period. Indoor and outdoor pollutant data were averaged over 1-hour time intervals and plotted on the same graph for easy comparison.
+
+## Hourly Average Plots
+
+When analyzing air pollution data, useful information can be deducted from the typical pattern of air pollution variations throughout the course of a day. An hourly average plot graphs the average concentration of a monitored pollutant at each hour of the day. Variations in the pollutant’s concentration can be used to interpret its source(s). It is important to note that each point on the daily average plot represents an average across all days for the specified hour. For example, the point at 6AM would represent the average concentration between 5-6AM over the complete period of monitoring. Day-to-day concentration variations are represented by shaded regions above or below the data point, where more day-to-day variability will be represented with larger shaded regions.
+
+## Box Plots
+
+A box plot shows how air pollution levels vary by summarizing all the measurements in a simple graphic. The box represents the middle half of the data — from the 25th to the 75th percentile — and the line inside the box shows the median (the value right in the middle), not the average. The “whiskers” extending from the box show the typical range of values, and any dots beyond them represent unusual pollution spikes or drops (called outliers).
+
+## Units of Measurement
+Air pollutant concentrations are reported here with three units: 
+
+1. **Part per billion (ppb)**: This is the volume fraction of the air pollutant in the air. Think of this the same way you would think of a "percent". One percent as a fraction is 1/100 = 0.01. One part per billion (ppb) is 1/1,000,000,000 = $1\times10^{-9}$. So if a pollutant concentration is 25 ppb, then that means there is $25\times10^{-9}$ m$^{3}$ of the pollutant in one cubic metre of air. We use this unit to report concentrations of nitrogen oxides (NO~x~), and ozone (O~3~).
+
+2. **Part per million (ppm)**: This is the volume fraction of the air pollutant in the air. Think of this the same way you would think of a "percent". One percent as a fraction is 1/100 = 0.01. One part per million (ppm) is 1/1,000,000 = $1\times10^{-6}$. So if a pollutant concentration is 25 ppm, then that means there is $25\times10^{-6}$ m$^{3}$ of the pollutant in one cubic metre of air. We use this unit to report concentrations of carbon monoxide (CO) and carbon dioxide (CO~2~).
+
+3. **Micrograms per cubic metre (µg/m$^{3}$)**: This is a mass fraction and is used for measuring the mass of particulate matter in the air. One microgram is equivalent to $1\times10^{-6}$ grams. So if a pollutant concentration is 25 µg/m$^{3}$, then that means there is $25\times10^{-6}$ g of the pollutant in one cubic metre of air. We use this unit to report concentrations of PM~2.5~ (Particles with a diameter less than 2.5 microns).
+
+
+
+\newpage
+
+# Nitrogen Oxides (NO~x~)
+
+## Context
+
+NO~x~ is the combination of nitrogen monoxide (NO) and nitrogen dioxide (NO~2~). Nitrogen monoxide (NO) is formed when nitrogen and oxygen in combustion air combine with one another at the high temperatures experienced in vehicle engines. NO further combines with oxygen to create nitrogen dioxide (NO~2~). In this report we summarize both total NO~x~ and NO~2~. The effects of NO~2~ exposure include increased inflammation of the airways, coughing and wheezing, reduced lung function, and the onset of asthma and impairment of lung development in children. Metro Vancouver has set air quality recommendations for NO~2~, stating that hourly average exposure to NO~2~ should not exceed 60 ppb, and that annual average exposure to NO~2~ should not exceed 17 ppb. However, because there is no known minimum threshold exposure to (NO~2~) that causes these adverse health impacts, we recommend limiting the exposure to NO~x~ to as low as reasonably achievable. 
+
+```{r NOx_setup, include=FALSE}
+NOx_low = 0
+NOx_lim = 50
+data = data %>% mutate(NOx = NO + NO2)
+
+ts_NOx = timePlot(data, pollutant = "NOx", avg.time = "1 hour", xlab = "Date", ylab = "NOx (ppb)", lty = 1, lwd=2)
+ts_NO2 = timePlot(data, pollutant = "NO2", avg.time = "1 hour", xlab = "Date", ylab = "NO2 (ppb)", lty = 1, lwd=2)
+diurnal_NOx = timeVariation(data,pollutant="NOx", ylab = "NOx (ppb)", xlab = "Hour")
+diurnal_NO2 = timeVariation(data,pollutant="NO2", ylab = "NO2 (ppb)", xlab = "Hour")
+box_NO2 <- ggplot(data, aes(x = "", y = NO2)) +
+    geom_boxplot(fill = "#E41A1C") +
+    labs(y = expression(NO[2]~"(ppb)"), x = "") +
+    theme_minimal()
+box_NOx <- ggplot(data, aes(x = "", y = NOx)) +
+    geom_boxplot(fill = "#E41A1C") +
+    labs(y = expression(NO[x]~"(ppb)"), x = "") +
+    theme_minimal()
+
+```
+## Time series plot
+
+```{r timeseries_NOx, echo = FALSE, fig.width=13,fig.height=6}
+plot(ts_NOx)
+```
+`r fig_cap(1, caption = "Timeseries plot of indoor NO~x~ concentrations during April 29 - May 9. The data is time-averaged over 1 hour time intervals.", display = "full")`
+
+```{r timeseries_NO2, echo = FALSE, fig.width=13,fig.height=6}
+plot(ts_NO2)
+```
+`r fig_cap(2, caption = "Timeseries plot of indoor NO~2~ concentrations during April 29 - May 9. The data is time-averaged over 1 hour time intervals.", display = "full")`
+
+## Hourly average plot
+
+```{r diurnal_NOx, fig.height=3, echo=FALSE}
+plot(diurnal_NOx, subset = "hour")
+```
+
+`r fig_cap(3, caption = "Hourly average plot of indoor NO~x~ concentrations during during April 29 - May 9.", display = "full")`
+
+```{r diurnal_NO2, fig.height=3, echo=FALSE}
+plot(diurnal_NO2, subset = "hour")
+```
+
+`r fig_cap(4, caption = "Hourly average plot of indoor NO~2~ concentrations during during April 29 - May 9.", display = "full")`
+
+## Box plots
+```{r box_NOx, fig.height=4, fig.width=4, echo=FALSE}
+box_NOx + box_NO2
+```
+
+`r fig_cap(5, caption = "Box plots of indoor NO~x~ and NO~2~ concentrations during during April 29 - May 9.", display = "full")`
+
+# Particulate Matter (PM~2.5~)
+
+## Context
+
+PM~2.5~ is the mass fraction of particulate matter with diameters smaller than 2.5 micron. The sources of PM~2.5~ include fuel combustion from traffic and wildfires. Exposure to particulate matter can have effects on childhood health, including irritation of the eyes, nose, and throat, decreased respiratory function, the development of asthma in children. Metro Vancouver's Air Quality Objectives state that 24-hour average exposure to PM~2.5~ should not exceed 25 µg/m^3^, and that annual average exposure to PM~2.5~ should not exceed 8 µg/m^3^. However, we recommend that the exposure to (PM~2.5~) is reduced to as low as reasonably achievable, as there is no known minimum exposure threshold for individuals to experience health impacts.
+
+NOTE: For this week, PM in your facility was essentially zero. What you are seeing represented is electronic noise from the sensors.
+
+```{r PM_setup, include=FALSE}
+PM_low = 0
+PM_lim = 25
+
+ts_PM = timePlot(data, pollutant = "PM2_5", avg.time = "1 hour", xlab = "Date", ylab = expression(PM[2.5]~(µg/m^3)), lty = 1, lwd=2)
+diurnal_PM = timeVariation(data,pollutant="PM2_5", ylab = expression(PM[2.5]~(µg/m^3)), xlab = "Hour")
+box_PM <- ggplot(data, aes(x = "", y = PM2_5)) +
+    geom_boxplot(fill = "#E41A1C") +
+    labs(y = expression(PM[2.5]~(µg/m^3))) +
+    theme_minimal()
+
+```
+
+## Time series plot
+
+```{r timeseries_PM, echo = FALSE, fig.width=13,fig.height=6}
+plot(ts_PM)
+```
+`r fig_cap(6, caption = "Timeseries plot of indoor PM~2.5~ concentrations during April 29 - May 9. The data is time-averaged over 1 hour time intervals.", display = "full")`
+
+## Hourly average plot
+
+```{r diurnal_PM, fig.height=3, echo=FALSE}
+plot(diurnal_PM, subset = "hour")
+```
+
+`r fig_cap(7, caption = "Hourly average plot of indoor PM~2.5~ concentrations during during April 29 - May 9.", display = "full")`
+
+
+## Box plots
+```{r box_PM, fig.height=4, fig.width=2, echo=FALSE}
+plot(box_PM)
+```
+
+`r fig_cap(8, caption = "Box plots of indoor PM~2.5~ concentrations during during April 29 - May 9.", display = "full")`
+
+# Carbon Monoxide (CO)
+
+Carbon monoxide (CO) is a byproduct of incomplete combustion and is associated with the burning of fossil fuels and wildfire smoke events. Metro Vancouver's Air Quality Objectives state that hourly average concentration of CO should not exceed 13 ppm, and that 8-hour average concentration of CO should not exceed 5 ppm. Similarly, Health Canada recommends that the hourly average concentration of indoor CO does not exceed 25 ppm, and that 24-hour average concentration of indoor CO does not exceed 10 ppm.
+
+```{r CO_setup, include=FALSE}
+CO_low = 0
+CO_lim = 13
+
+ts_CO = timePlot(data, pollutant = "CO", avg.time = "1 hour", xlab = "Date", ylab = "CO (ppm)", lty = 1, lwd=2)
+diurnal_CO = timeVariation(data,pollutant="CO", ylab = "CO (ppm)", xlab = "Hour")
+box_CO <- ggplot(data, aes(x = "", y = CO)) +
+    geom_boxplot(fill = "#E41A1C") +
+    labs(y = "CO (ppm)") +
+    theme_minimal()
+
+```
+
+## Time series plot
+
+```{r timeseries_CO, echo = FALSE, fig.width=13,fig.height=6}
+plot(ts_CO)
+```
+`r fig_cap(9, caption = "Timeseries plot of indoor CO concentrations during April 29 - May 9. The data is time-averaged over 1 hour time intervals.", display = "full")`
+
+## Hourly average plot
+
+```{r diurnal_CO, fig.height=3, echo=FALSE}
+plot(diurnal_CO, subset = "hour")
+```
+
+`r fig_cap(10, caption = "Hourly average plot of indoor CO concentrations during during April 29 - May 9.", display = "full")`
+
+
+## Box plots
+```{r box_CO, fig.height=4, fig.width=2, echo=FALSE}
+plot(box_CO)
+```
+
+`r fig_cap(11, caption = "Box plots of indoor CO concentrations during during April 29 - May 9.", display = "full")`
+
+# Ozone (O~3~)
+
+Ground-level ozone (O~3~) is not a  direct traffic-related emission; however, it is formed from the reaction of nitrogen oxides (NO~x~) and volatile organic compounds (VOCs) (which are traffic-related air pollutants) in the presence of sunlight. Ozone is important in the stratosphere, as it keeps us safe from harmful ultraviolet rays (UV-A and UV-B). However exposure to  ground-level ozone can cause shortness of breath or hyperventilation, coughing and/or sore or scratchy throat, inflamed and damaged airways, and aggravation of lung diseases such as asthma, emphysema, and chronic bronchitis. Ground-level ozone is a principal chemical component of smog (smoky fog). Metro Vancouver's Air Quality Objectives state that hourly average exposure to O~3~ should not exceed 82 ppb, and that 8-hour average exposure to O~3~ should not exceed 62 ppb.
+
+In indoor environments, where there is no sunlight, ozone concentrations are generally very low.
+
+```{r O3_setup, include=FALSE}
+O3_low = 0
+O3_lim = 62
+
+ts_O3 = timePlot(data, pollutant = "O3", avg.time = "1 hour", xlab = "Date", ylab = "O3 (ppb)", lty = 1, lwd=2)
+diurnal_O3 = timeVariation(data,pollutant="O3", ylab = "O3 (ppb)", xlab = "Hour")
+box_O3 <- ggplot(data, aes(x = "", y = O3)) +
+    geom_boxplot(fill = "#E41A1C") +
+    labs(y = expression(O[3]~"(ppb)")) +
+    theme_minimal()
+
+```
+
+## Time series plot
+
+```{r timeseries_O3, echo = FALSE, fig.width=13,fig.height=6}
+plot(ts_O3)
+```
+`r fig_cap(12, caption = "Timeseries plot of indoor O~3~ concentrations during April 29 - May 9. The data is time-averaged over 1 hour time intervals.", display = "full")`
+
+## Hourly average plot
+
+```{r diurnal_O3, fig.height=3, echo=FALSE}
+plot(diurnal_O3, subset = "hour")
+```
+
+`r fig_cap(13, caption = "Hourly average plot of indoor O~3~ concentrations during during April 29 - May 9.", display = "full")`
+
+
+## Box plots
+```{r box_O3, fig.height=4, fig.width=2, echo=FALSE}
+plot(box_O3)
+```
+
+`r fig_cap(14, caption = "Box plots of indoor O~3~ concentrations during during April 29 - May 9.", display = "full")`
+
+# Carbon dioxoide (CO~2~)
+
+Carbon dioxide (CO~2~) is a pollutant that comes from the combustion of organic and inorganic material, as well as respiration from humans. Exposure to high levels of CO~2~ can increase the risk of mucous membrane and respiratory irritation (sore or dry throat, congested nose, sneezing, coughing, and eye irritation), impaired decision-making, and neurophysiological symptoms (headache, tiredness, fatigue, dizziness or difficulty concentrating). Health Canada recommends an individual’s exposure to CO~2~ does not exceed an average of 1000 ppm over a 24-hour period. 
+
+CO~2~ is not typically considered an air pollutant (there is no Metro Vancouver Air Quality Objective), but it is the primary constituent that contributes to climate change. It can also be a good marker of indoor ventilation.
+
+```{r CO2_setup, include=FALSE}
+CO2_low = 0
+CO2_lim = 1000
+
+ts_CO2 = timePlot(data, pollutant = "CO2", avg.time = "1 hour", xlab = "Date", ylab = "CO2 (ppm)", lty = 1, lwd=2)
+diurnal_CO2 = timeVariation(data,pollutant="CO2", ylab = "CO2 (ppm)", xlab = "Hour")
+box_CO2 <- ggplot(data, aes(x = "", y = CO2)) +
+    geom_boxplot(fill = "#E41A1C") +
+    labs(y = expression(CO[2]~"(ppm)")) +
+    theme_minimal()
+
+```
+
+## Time series plot
+
+```{r timeseries_CO2, echo = FALSE, fig.width=13,fig.height=6}
+plot(ts_CO2)
+```
+`r fig_cap(15, caption = "Timeseries plot of indoor CO~2~ concentrations during April 29 - May 9. The data is time-averaged over 1 hour time intervals.", display = "full")`
+
+## Hourly average plot
+
+```{r diurnal_CO2, fig.height=3, echo=FALSE}
+plot(diurnal_CO2, subset = "hour")
+```
+
+`r fig_cap(16, caption = "Hourly average plot of indoor CO~2~ concentrations during during April 29 - May 9.", display = "full")`
+
+
+## Box plots
+```{r box_CO2, fig.height=4, fig.width=2, echo=FALSE}
+plot(box_CO2)
+```
+
+`r fig_cap(17, caption = "Box plots of indoor CO~2~ concentrations during during April 29 - May 9.", display = "full")`
