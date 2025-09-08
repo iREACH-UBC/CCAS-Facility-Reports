@@ -1,0 +1,36 @@
+{
+  "name": "CCAS Facility Reports",
+
+  // Base container image (Ubuntu with dev tools)
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+
+  // System-level tools/languages to install
+  "features": {
+    // Install R (latest version)
+    "ghcr.io/devcontainers/features/r:1": {
+      "version": "latest"
+    },
+    // Install LaTeX (needed for PDF knitting)
+    "ghcr.io/devcontainers/features/latex:1": {}
+  },
+
+  // Commands run AFTER container is built
+  "postCreateCommand": "Rscript -e 'install.packages(c(\"rmarkdown\", \"knitr\", \"tinytex\"))' && Rscript -e 'tinytex::install_tinytex()'",
+
+  // VS Code extensions inside Codespace
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "REditorSupport.r",   // R language support
+        "REditorSupport.rdebugger",
+        "REditorSupport.rsyntax",
+        "quarto.quarto"       // Helpful for RMarkdown/Quarto docs
+      ]
+    }
+  }
+
+//   // Optional: environment variables
+//   "containerEnv": {
+//     "R_LIBS_USER": "/workspaces/.r-libs"
+//   }
+}
