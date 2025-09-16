@@ -15,7 +15,9 @@
         "REditorSupport.rdebugger",
         "REditorSupport.rsyntax",
         "quarto.quarto",       // Helpful for RMarkdown/Quarto docs
-        "MathematicInc.PDFViewer"  // PDF viewer
+        "mechatroner.rainbow-csv",
+        "mathematic.vscode-pdf"  // PDF viewer
+        // "cweijan.vscode-office"  // MS Office viewer
       ]
     }
   }

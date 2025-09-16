@@ -2,8 +2,9 @@ packages <- c(
   "rmarkdown", "knitr", "tinytex", "languageserver",
   "R.methodsS3", "R.oo", "R.utils", "R.cache",
   "collections", "lintr", "styler", "xmlparsedata",
-  "latticeExtra", "patchwork", "worldmet",
-  "openair", "gtools", "caret", "plyr", "kableExtra"
+  "latticeExtra", "patchwork", "worldmet", "readxl",
+  "openair", "gtools", "caret", "plyr", "kableExtra",
+  "writexl", "grid", "gridExtra", "lattice", "png"
 )
 
 # Check which packages are missing

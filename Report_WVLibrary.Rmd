@@ -11,7 +11,7 @@ output:
   html_document:
     df_print: paged
     toc: yes
-authors: Hugo Dignoes Ricart, Caroline Webber, and Prof. Naomi Zimmerman
+authors: Hugo Dignoes Ricart, Caroline Webber, Krista Traboulay, and Prof. Naomi Zimmerman
 ---
 
 \newpage
@@ -32,8 +32,13 @@ library(kableExtra)
 library(tidyverse)
 library(captioner)
 library(lubridate)
+library(lattice)
 library(latticeExtra)
 library(worldmet)
+library(readxl)
+library(grid)  # For legend grob
+library(gridExtra)  # For extra legend when plotting
+library(png)  # For forcing legend to centre
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(message = FALSE)
 ```
@@ -46,21 +51,27 @@ tab_cap <- captioner::captioner("Table")
 
 ```{r Load and Subset Data, include = FALSE, message = FALSE, warning = FALSE}
 # Load data
-data <- read.csv("2049_pred_03_04.csv")
+# data <- read.csv("2043_pred_processed.csv")
+outdoor_data <- read_excel("other_data/2043_pred_copy2.xlsx", sheet = "August")
+indoor_data <- read_excel("other_data/2045_pred.xlsx", sheet = "August")
+# data <- read_excel("2043_pred_processed.xlsx")
+data_list <- list(outdoor_data, indoor_data)
 
-# Convert date column
-data$date <- as.POSIXct(data$date, format = "%m/%d/%Y %H:%M", tz="Etc/GMT-8")
-
-# Remove first 4 rows
-data <- data[-c(1:14), ]
-
-# Rename columns
-names(data)[names(data) == "NO2..ppb."] <- "NO2"
-names(data)[names(data) == "NO..ppb."] <- "NO"
-names(data)[names(data) == "CO2..ppm."] <- "CO2"
-names(data)[names(data) == "O3..ppb."] <- "O3"
-names(data)[names(data) == "CO..ppm."] <- "CO"
-names(data)[names(data) == "PM2_5.ug.m3."] <- "PM2_5"
+for (data in data_list) {
+  # Convert date column
+  data$date <- as.POSIXct(data$date, format = "%m/%d/%Y %H:%M", tz="Etc/GMT-8")
+  
+  # Remove first 4 rows
+  data <- data[-c(1:14), ]
+  
+  # Rename columns
+  names(data)[names(data) == "NO2..ppb."] <- "NO2"
+  names(data)[names(data) == "NO..ppb."] <- "NO"
+  names(data)[names(data) == "CO2..ppm."] <- "CO2"
+  names(data)[names(data) == "O3..ppb."] <- "O3"
+  names(data)[names(data) == "CO..ppm."] <- "CO"
+  names(data)[names(data) == "PM2_5.ug.m3."] <- "PM2_5"
+}
 
 # Define pollutants and their units
 pollutants <- c("NO2", "NO", "CO2", "O3", "CO", "PM2_5")
@@ -72,6 +83,76 @@ units <- list(
   CO = "ppm",
   PM2_5 = "µg/m³"
 )
+```
+
+```{r Load plotting functions, include = FALSE, message = FALSE, warning = FALSE}
+
+# Formatted variables are expressions with subscripts/ special chars
+generate_timeseries_plot <- function(
+    pollutant_name, y_label_expression,
+    outdoor_data_hr_avg, indoor_data_hr_avg) {
+  # Get ranges first
+  xrange <- range(c(outdoor_data_hr_avg$date, indoor_data_hr_avg$date))
+  yrange <- range(
+    c(outdoor_data_hr_avg[[pollutant_name]], indoor_data_hr_avg[[pollutant_name]]))
+
+  # Empty plot
+  plot(NA, xlim = xrange, ylim = yrange,
+      xlab = "Date",
+      ylab = y_label_expression,
+      xaxt = "n")
+
+  # Add lines
+  lines(
+    outdoor_data_hr_avg$date, outdoor_data_hr_avg[[pollutant_name]], col = "blue")
+  lines(indoor_data_hr_avg$date, indoor_data_hr_avg[[pollutant_name]], col = "red")
+  axis.POSIXct(1, outdoor_data_hr_avg$date, format = "%b %d")  # Assumes same dates in outdoor and indoor data
+
+  # Add legend
+  legend(x = "topright", box.col = "black",
+        bg = "#fafaa4", box.lwd = 2,
+        legend = c(
+          "Outdoor Concentrations",
+          "Indoor Concentrations"
+        ),
+        fill = c("blue", "red"))
+}
+
+
+# For both indoor and outdoor datasets
+get_diurnal_plots <- function(
+  outdoor_dataset, indoor_dataset, pollutant_name,
+  y_label_expression, horizontal_references
+){
+  diurnal_outdoor = timeVariation(outdoor_dataset,pollutant=pollutant_name,
+    ylab = y_label_expression,
+    xlab = "Hour", cols = "blue",
+    ref.y = horizontal_references)
+  diurnal_indoor = timeVariation(indoor_dataset,pollutant=pollutant_name,
+    ylab = y_label_expression,
+    xlab = "Hour", cols = "blue",
+    ref.y = horizontal_references)
+
+  return(list("outdoor_plot" = diurnal_outdoor, "indoor_plot" = diurnal_indoor))
+}
+
+
+# For both indoor and outdoor datasets
+get_box_plots <- function(
+  outdoor_dataset, indoor_dataset, pollutant_name,
+  y_label_expression
+){
+  box_outdoor <- ggplot(outdoor_dataset, aes(x = "", y = !!sym(pollutant_name))) +
+    geom_boxplot(fill = "#E41A1C") +
+    labs(y = y_label_expression, x = "") +
+    theme_minimal()
+  box_indoor <- ggplot(indoor_dataset, aes(x = "", y = !!sym(pollutant_name))) +
+    geom_boxplot(fill = "#E41A1C") +
+    labs(y = y_label_expression, x = "") +
+    theme_minimal()
+
+  return(list("outdoor_plot" = box_outdoor, "indoor_plot" = box_indoor))
+}
 ```
 
 # Background and Introduction
@@ -125,56 +206,186 @@ NO~x~ is the combination of nitrogen monoxide (NO) and nitrogen dioxide (NO~2~).
 ```{r NOx_setup, include=FALSE}
 NOx_low = 0
 NOx_lim = 50
-data = data %>% mutate(NOx = NO + NO2)
+outdoor_data = outdoor_data %>% mutate(NOx = NO + NO2)
+indoor_data = indoor_data %>% mutate(NOx = NO + NO2)
 
-ts_NOx = timePlot(data, pollutant = "NOx", avg.time = "1 hour", xlab = "Date", ylab = "NOx (ppb)", lty = 1, lwd=2)
-ts_NO2 = timePlot(data, pollutant = "NO2", avg.time = "1 hour", xlab = "Date", ylab = "NO2 (ppb)", lty = 1, lwd=2)
-diurnal_NOx = timeVariation(data,pollutant="NOx", ylab = "NOx (ppb)", xlab = "Hour")
-diurnal_NO2 = timeVariation(data,pollutant="NO2", ylab = "NO2 (ppb)", xlab = "Hour")
-box_NO2 <- ggplot(data, aes(x = "", y = NO2)) +
+# Hourly averages
+outdoor_data_averaged <- timeAverage(outdoor_data, avg.time = "hour")
+indoor_data_averaged <- timeAverage(indoor_data, avg.time = "hour")
+
+make_NO2_CAAQS_legend <- function() {
+  layout(1)
+  par(mar = c(0, 0, 0, 0))
+  plot.new()
+  legend(
+    x = "center", y = "center",
+    title="CAAQS Hourly NO2 (ppb) Management Levels",
+    legend=c("Green (<=20, Not Displayed)", "Yellow (21-31)", "Orange (32-42)", "Red (>42)"),
+    col=c("green", "#f3d020", "orange", "red"),
+    lty=1, lwd=2, bty="n", cex=0.8, xpd = NA)
+}
+
+NO2_diurnals <- get_diurnal_plots(outdoor_data, indoor_data, "NO2", expression(paste(NO[2], " (ppb)")), list(h=c(21, 32, 42), lty = 1, lwd = 2, col = c("#f3d020", "orange", "red")))
+NOx_box_plots <- get_box_plots(outdoor_data, indoor_data, "NOx", expression(paste(NO[x], " (ppb)")))
+
+diurnal_NOx_outdoor = timeVariation(outdoor_data,pollutant="NOx",
+  ylab = "NOx (ppb)", xlab = "Hour", cols = "blue",
+  ref.y = list(h = 50, lty = 1, lwd = 2, col = "red"))
+diurnal_NOx_indoor = timeVariation(indoor_data,pollutant="NOx",
+  ylab = "NOx (ppb)", xlab = "Hour", cols = "blue",
+  ref.y = list(h = 50, lty = 1, lwd = 2, col = "red"))
+diurnal_NO2_outdoor = timeVariation(outdoor_data,pollutant="NO2",
+  ylab = "NO2 (ppb)", xlab = "Hour", cols = "blue",
+  ref.y = list(h=c(21, 32, 42), lty = 1, lwd = 2, col = c("#f3d020", "orange", "red")))
+diurnal_NO2_indoor = timeVariation(indoor_data,pollutant="NO2",
+  ylab = "NO2 (ppb)", xlab = "Hour", cols = "blue",
+  ref.y = list(h=c(21, 32, 42), lty = 1, lwd = 2, col = c("#f3d020", "orange", "red")))
+
+# TODO: delete after
+diurnal_plots = list("outdoor_plot" = diurnal_NOx_outdoor, "indoor_plot" = diurnal_NOx_indoor)
+
+box_NO2_outdoor <- ggplot(outdoor_data, aes(x = "", y = NO2)) +
     geom_boxplot(fill = "#E41A1C") +
     labs(y = expression(NO[2]~"(ppb)"), x = "") +
     theme_minimal()
-box_NOx <- ggplot(data, aes(x = "", y = NOx)) +
+box_NO2_indoor <- ggplot(indoor_data, aes(x = "", y = NO2)) +
+  geom_boxplot(fill = "#E41A1C") +
+  labs(y = expression(NO[2]~"(ppb)"), x = "") +
+  theme_minimal()
+box_NOx_outdoor <- ggplot(outdoor_data, aes(x = "", y = NOx)) +
     geom_boxplot(fill = "#E41A1C") +
     labs(y = expression(NO[x]~"(ppb)"), x = "") +
     theme_minimal()
-
+box_NOx_indoor <- ggplot(indoor_data, aes(x = "", y = NOx)) +
+    geom_boxplot(fill = "#E41A1C") +
+    labs(y = expression(NO[x]~"(ppb)"), x = "") +
+    theme_minimal()
 ```
 ## Time series plot
 
 ```{r timeseries_NOx, echo = FALSE, fig.width=13,fig.height=6}
-plot(ts_NOx)
+# Get ranges first
+xrange_NOx <- range(c(outdoor_data_averaged$date, indoor_data_averaged$date))
+yrange_NOx <- range(c(outdoor_data_averaged$NOx, indoor_data_averaged$NOx))
+
+# Empty plot
+plot(NA, xlim = xrange_NOx, ylim = yrange_NOx,
+     xlab = "Date", ylab = "NOx (ppb)", xaxt = "n")
+
+# Add lines
+lines(outdoor_data_averaged$date, outdoor_data_averaged$NOx, col = "blue")
+lines(indoor_data_averaged$date, indoor_data_averaged$NOx, col = "red")
+axis.POSIXct(1, outdoor_data$date, format = "%b %d")
+
+# Add legend
+legend(x = "topright", box.col = "black",
+       bg = "#fafaa4", box.lwd = 2,
+       legend = c(
+         expression("Outdoor NO"[x] * " Concentrations"),
+         expression("Indoor NO"[x] * " Concentrations")
+       ),
+       fill = c("blue", "red"))
 ```
-`r fig_cap(1, caption = "Timeseries plot of indoor NO~x~ concentrations during April 29 - May 9. The data is time-averaged over 1 hour time intervals.", display = "full")`
+`r fig_cap(1, caption = "Timeseries plot of NO~x~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
 
 ```{r timeseries_NO2, echo = FALSE, fig.width=13,fig.height=6}
-plot(ts_NO2)
+
+# Get ranges first
+xrange_NO2 <- range(c(outdoor_data_averaged$date, indoor_data_averaged$date))
+yrange_NO2 <- range(c(outdoor_data_averaged$NO2, indoor_data_averaged$NO2))
+
+# Empty plot
+plot(NA, xlim = xrange_NO2, ylim = yrange_NO2,
+     xlab = "Date", ylab = "NO2 (ppb)", xaxt = "n")  # suppress x-axis
+
+# Add lines
+lines(outdoor_data_averaged$date, outdoor_data_averaged$NO2, col = "blue")
+lines(indoor_data_averaged$date, indoor_data_averaged$NO2, col = "red")
+axis.POSIXct(1, outdoor_data$date, format = "%b %d")
+
+# Add legend
+legend(x = "topright", box.col = "black",
+       bg = "#fafaa4", box.lwd = 2,
+       legend = c(
+         expression("Outdoor NO"[2] * " Concentrations"),
+         expression("Indoor NO"[2] * " Concentrations")
+       ),
+       fill = c("blue", "red"))
 ```
-`r fig_cap(2, caption = "Timeseries plot of indoor NO~2~ concentrations during April 29 - May 9. The data is time-averaged over 1 hour time intervals.", display = "full")`
+`r fig_cap(2, caption = "Timeseries plot of NO~2~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
+
+```{r check_timeseries, echo = FALSE, fig.width=13, fig.height=6}
+generate_timeseries_plot("NO2", expression(paste(NO[2], " (", µg / m^3, ")")),
+  outdoor_data_averaged, indoor_data_averaged)
+```
 
 ## Hourly average plot
 
-```{r diurnal_NOx, fig.height=3, echo=FALSE}
-plot(diurnal_NOx, subset = "hour")
+```{r diurnal_NOx_outdoor, fig.height=3, echo=FALSE}
+plot(diurnal_NOx_outdoor, subset = "hour")
 ```
 
-`r fig_cap(3, caption = "Hourly average plot of indoor NO~x~ concentrations during during April 29 - May 9.", display = "full")`
+`r fig_cap(3, caption = "Hourly average plot of outdoor NO~x~ concentrations during August 2025. The red line at 50 ppb represents the cutoff for dangerous hourly exposure levels of NO~x~.", display = "full")`
 
-```{r diurnal_NO2, fig.height=3, echo=FALSE}
-plot(diurnal_NO2, subset = "hour")
+```{r diurnal_NOx_indoor, fig.height=3, echo=FALSE}
+plot(diurnal_NOx_indoor, subset = "hour")
 ```
 
-`r fig_cap(4, caption = "Hourly average plot of indoor NO~2~ concentrations during during April 29 - May 9.", display = "full")`
+`r fig_cap(4, caption = "Hourly average plot of indoor NO~x~ concentrations during August 2025. The red line at 50 ppb represents the cutoff for dangerous hourly exposure levels of NO~x~.", display = "full")`
+
+```{r check_diurnal_plots, fig.height=3, echo=FALSE}
+plot(NO2_diurnals$indoor_plot, subset = "hour")
+```
+
+```{r NO2_legend, fig.height=3, echo = FALSE}
+
+# Create a temporary PNG file to help centre legend
+temp_file_NOx <- tempfile(fileext = ".png")
+png(temp_file_NOx, width = 1500, height = 500, res = 300, bg = "white")
+make_NO2_CAAQS_legend()
+invisible(dev.off())
+
+# Display centred image
+img <- readPNG(temp_file_NOx)
+grid.newpage()
+grid.raster(img, x = 0.6, y = 0.5)
+
+# Clean up
+unlink(temp_file_NOx)
+```
+`r fig_cap(5, caption = "CAAQS Hourly Management Levels for NO~2~.", display = "full")`
+
+```{r diurnal_NO2_outdoor, fig.height=3, echo=FALSE}
+plot(diurnal_NO2_outdoor, subset="hour")
+```
+
+`r fig_cap(6, caption = "Hourly average plot of outdoor NO~2~ concentrations during August 2025.", display = "full")`
+
+```{r diurnal_NO2_indoor, fig.height=3, echo=FALSE}
+plot(diurnal_NO2_indoor, subset = "hour")
+```
+
+`r fig_cap(7, caption = "Hourly average plot of indoor NO~2~ concentrations during August 2025.", display = "full")`
 
 ## Box plots
+
 ```{r box_NOx, fig.height=4, fig.width=4, echo=FALSE}
-box_NOx + box_NO2
+box_NOx_outdoor + box_NOx_indoor
 ```
 
-`r fig_cap(5, caption = "Box plots of indoor NO~x~ and NO~2~ concentrations during during April 29 - May 9.", display = "full")`
+`r fig_cap(8, caption = "Box plots of outdoor (left) and indoor (right) NO~x~ concentrations during August 2025.", display = "full")`
 
-# Particulate Matter (PM~2.5~)
+```{r check_box_plots, fig.height=4, fig.width=4, echo=FALSE}
+NOx_box_plots$outdoor_plot + NOx_box_plots$indoor_plot
+```
+
+```{r box_NO2, fig.height=4, fig.width=4, echo=FALSE}
+box_NO2_outdoor + box_NO2_indoor
+```
+
+`r fig_cap(9, caption = "Box plots of outdoor (left) and indoor (right) NO~2~ concentrations during August 2025.", display = "full")`
+
+<!-- # Particulate Matter (PM~2.5~)
 
 ## Context
 
@@ -186,37 +397,105 @@ NOTE: For this week, PM in your facility was essentially zero. What you are seei
 PM_low = 0
 PM_lim = 25
 
-ts_PM = timePlot(data, pollutant = "PM2_5", avg.time = "1 hour", xlab = "Date", ylab = expression(PM[2.5]~(µg/m^3)), lty = 1, lwd=2)
-diurnal_PM = timeVariation(data,pollutant="PM2_5", ylab = expression(PM[2.5]~(µg/m^3)), xlab = "Hour")
-box_PM <- ggplot(data, aes(x = "", y = PM2_5)) +
+# May not display on diurnal plots, is 24-hr levels
+make_PM_CAAQS_legend <- function() {
+  layout(1)
+  par(mar = c(0, 0, 0, 0))
+  plot.new()
+  legend(
+    x = "center", y = "center",
+    title= "CAAQS 24 Hour PM Management Levels",
+    legend=c("Green (<=10, Not Displayed)", "Yellow (11-17.5)", "Orange (18.5-25)", "Red (>25)"),
+    col=c("green", "#f3d020", "orange", "red"),
+    lty=1, lwd=2, bty="n", cex=0.8, xpd = NA)
+}
+
+diurnal_PM_outdoor = timeVariation(outdoor_data,pollutant="PM2_5",
+  ylab = expression(PM[2.5]~(µg/m^3)), xlab = "Hour", cols = "blue")
+  # ref.y = list(h=c(11, 18.5, 25), lty = 1, lwd = 2, col = c("#f3d020", "orange", "red")))
+diurnal_PM_indoor = timeVariation(indoor_data,pollutant="PM2_5",
+  ylab = expression(PM[2.5]~(µg/m^3)), xlab = "Hour", cols = "blue")
+  # ref.y = list(h=c(11, 18.5, 25), lty = 1, lwd = 2, col = c("#f3d020", "orange", "red")))
+
+box_PM_outdoor <- ggplot(outdoor_data, aes(x = "", y = PM2_5)) +
     geom_boxplot(fill = "#E41A1C") +
-    labs(y = expression(PM[2.5]~(µg/m^3))) +
+    labs(y = expression(PM[2.5]~(µg/m^3)), x = "") +
     theme_minimal()
+box_PM_indoor <- ggplot(indoor_data, aes(x = "", y = PM2_5)) +
+  geom_boxplot(fill = "#E41A1C") +
+  labs(y = expression(PM[2.5]~(µg/m^3)), x = "") +
+  theme_minimal()
 
 ```
 
 ## Time series plot
 
 ```{r timeseries_PM, echo = FALSE, fig.width=13,fig.height=6}
-plot(ts_PM)
+# Get ranges first
+xrange_PM2_5 <- range(c(outdoor_data_averaged$date, indoor_data_averaged$date))
+yrange_PM2_5 <- range(c(outdoor_data_averaged$PM2_5, indoor_data_averaged$PM2_5))
+
+# Empty plot
+plot(NA, xlim = xrange_PM2_5, ylim = yrange_PM2_5,
+     xlab = "Date", ylab = expression(PM[2.5]~(µg/m^3)), xaxt = "n")
+
+# Add lines
+lines(outdoor_data_averaged$date, outdoor_data_averaged$PM2_5, col = "blue")
+lines(indoor_data_averaged$date, indoor_data_averaged$PM2_5, col = "red")
+axis.POSIXct(1, outdoor_data$date, format = "%b %d")
+
+# Add legend
+legend(x = "topright", box.col = "black",
+       bg = "#fafaa4", box.lwd = 2,
+       legend = c(
+         expression("Outdoor PM"[2.5] * " Concentrations"),
+         expression("Indoor PM"[2.5] * " Concentrations")
+       ),
+       fill = c("blue", "red"))
 ```
-`r fig_cap(6, caption = "Timeseries plot of indoor PM~2.5~ concentrations during April 29 - May 9. The data is time-averaged over 1 hour time intervals.", display = "full")`
+`r fig_cap(10, caption = "Timeseries plot of CO concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
 
 ## Hourly average plot
 
-```{r diurnal_PM, fig.height=3, echo=FALSE}
-plot(diurnal_PM, subset = "hour")
+```{r PM_legend, fig.height=3, echo = FALSE}
+# Possibly remove if it causes confusion with hourly averages
+
+# Create a temporary PNG file to help centre legend
+temp_file_PM <- tempfile(fileext = ".png")
+png(temp_file_PM, width = 1500, height = 500, res = 300, bg = "white")
+make_PM_CAAQS_legend()
+invisible(dev.off())
+
+# Display centred image
+img <- readPNG(temp_file_PM)
+grid.newpage()
+grid.raster(img, x = 0.6, y = 0.5)
+
+# Clean up
+unlink(temp_file_PM)
+```
+`r fig_cap(11, caption = "CAAQS 24-Hour Management Levels for PM~2.5~.", display = "full")`
+
+```{r diurnal_PM_outdoor, fig.height=3, echo=FALSE}
+plot(diurnal_PM_outdoor, subset = "hour")
 ```
 
-`r fig_cap(7, caption = "Hourly average plot of indoor PM~2.5~ concentrations during during April 29 - May 9.", display = "full")`
+`r fig_cap(12, caption = "Hourly average plot of outdoor PM~2.5~ concentrations during August 2025.", display = "full")`
+
+```{r diurnal_PM_indoor, fig.height=3, echo=FALSE}
+plot(diurnal_PM_indoor, subset = "hour")
+```
+
+`r fig_cap(13, caption = "Hourly average plot of indoor PM~2.5~ concentrations during August 2025.", display = "full")`
 
 
 ## Box plots
-```{r box_PM, fig.height=4, fig.width=2, echo=FALSE}
-plot(box_PM)
+```{r box_PM, fig.height=4, fig.width=4, echo=FALSE}
+box_PM_outdoor + box_PM_indoor
 ```
 
-`r fig_cap(8, caption = "Box plots of indoor PM~2.5~ concentrations during during April 29 - May 9.", display = "full")`
+`r fig_cap(14, caption = "Box plots of outdoor (left) and indoor (right) PM~2.5~ concentrations during August 2025.", display = "full")`
+
 
 # Carbon Monoxide (CO)
 
@@ -226,41 +505,75 @@ Carbon monoxide (CO) is a byproduct of incomplete combustion and is associated w
 CO_low = 0
 CO_lim = 13
 
-ts_CO = timePlot(data, pollutant = "CO", avg.time = "1 hour", xlab = "Date", ylab = "CO (ppm)", lty = 1, lwd=2)
-diurnal_CO = timeVariation(data,pollutant="CO", ylab = "CO (ppm)", xlab = "Hour")
-box_CO <- ggplot(data, aes(x = "", y = CO)) +
+diurnal_CO_outdoor = timeVariation(outdoor_data,pollutant="CO",
+  ylab = "CO (ppm)", xlab = "Hour", cols = "blue",
+  ref.y = list(h = 13, lty = 1, lwd = 2, col = "red"))
+diurnal_CO_indoor = timeVariation(indoor_data,pollutant="CO",
+  ylab = "CO (ppm)", xlab = "Hour", cols = "blue",
+  ref.y = list(h = 13, lty = 1, lwd = 2, col = "red"))
+
+box_CO_outdoor <- ggplot(outdoor_data, aes(x = "", y = CO)) +
     geom_boxplot(fill = "#E41A1C") +
-    labs(y = "CO (ppm)") +
+    labs(y = "CO (ppm)", x = "") +
     theme_minimal()
+box_CO_indoor <- ggplot(indoor_data, aes(x = "", y = CO)) +
+  geom_boxplot(fill = "#E41A1C") +
+  labs(y = "CO (ppm)", x = "") +
+  theme_minimal()
 
 ```
 
 ## Time series plot
 
 ```{r timeseries_CO, echo = FALSE, fig.width=13,fig.height=6}
-plot(ts_CO)
+# Get ranges first
+xrange_CO <- range(c(outdoor_data_averaged$date, indoor_data_averaged$date))
+yrange_CO <- range(c(outdoor_data_averaged$CO, indoor_data_averaged$CO))
+
+# Empty plot
+plot(NA, xlim = xrange_CO, ylim = yrange_CO,
+     xlab = "Date", ylab = "CO (ppm)", xaxt = "n")
+
+# Add lines
+lines(outdoor_data_averaged$date, outdoor_data_averaged$CO, col = "blue")
+lines(indoor_data_averaged$date, indoor_data_averaged$CO, col = "red")
+axis.POSIXct(1, outdoor_data$date, format = "%b %d")
+
+# Add legend
+legend(x = "topright", box.col = "black",
+       bg = "#fafaa4", box.lwd = 2,
+       legend = c(
+         "Outdoor CO Concentrations",
+         "Indoor CO Concentrations"
+       ),
+       fill = c("blue", "red"))
 ```
-`r fig_cap(9, caption = "Timeseries plot of indoor CO concentrations during April 29 - May 9. The data is time-averaged over 1 hour time intervals.", display = "full")`
+`r fig_cap(15, caption = "Timeseries plot of CO concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
 
 ## Hourly average plot
 
-```{r diurnal_CO, fig.height=3, echo=FALSE}
-plot(diurnal_CO, subset = "hour")
+```{r diurnal_CO_outdoor, fig.height=3, echo=FALSE}
+plot(diurnal_CO_outdoor, subset = "hour")
 ```
 
-`r fig_cap(10, caption = "Hourly average plot of indoor CO concentrations during during April 29 - May 9.", display = "full")`
+`r fig_cap(16, caption = "Hourly average plot of outdoor CO concentrations during August 2025. The red horizontal line represents the 13 ppm CO limit from Metro Vancouver's Air Quality Objectives.", display = "full")`
 
+```{r diurnal_CO_indoor, fig.height=3, echo=FALSE}
+plot(diurnal_CO_indoor, subset = "hour")
+```
+
+`r fig_cap(17, caption = "Hourly average plot of indoor CO concentrations during August 2025. The red horizontal line represents the 13 ppm CO limit from Metro Vancouver's Air Quality Objectives.", display = "full")`
 
 ## Box plots
 ```{r box_CO, fig.height=4, fig.width=2, echo=FALSE}
-plot(box_CO)
+box_CO_outdoor + box_CO_indoor
 ```
 
-`r fig_cap(11, caption = "Box plots of indoor CO concentrations during during April 29 - May 9.", display = "full")`
+`r fig_cap(18, caption = "Box plots of CO concentrations during August 2025.", display = "full")`
 
 # Ozone (O~3~)
 
-Ground-level ozone (O~3~) is not a  direct traffic-related emission; however, it is formed from the reaction of nitrogen oxides (NO~x~) and volatile organic compounds (VOCs) (which are traffic-related air pollutants) in the presence of sunlight. Ozone is important in the stratosphere, as it keeps us safe from harmful ultraviolet rays (UV-A and UV-B). However exposure to  ground-level ozone can cause shortness of breath or hyperventilation, coughing and/or sore or scratchy throat, inflamed and damaged airways, and aggravation of lung diseases such as asthma, emphysema, and chronic bronchitis. Ground-level ozone is a principal chemical component of smog (smoky fog). Metro Vancouver's Air Quality Objectives state that hourly average exposure to O~3~ should not exceed 82 ppb, and that 8-hour average exposure to O~3~ should not exceed 62 ppb.
+Ground-level ozone (O~3~) is not a  direct traffic-related emission; however, it is formed from the reaction of nitrogen oxides (NO~x~) and volatile organic compounds (VOCs) (which are traffic-related air pollutants) in the presence of sunlight. Ozone is important in the stratosphere, as it keeps us safe from harmful ultraviolet rays (UV-A and UV-B). However exposure to ground-level ozone can cause shortness of breath or hyperventilation, coughing and/or sore or scratchy throat, inflamed and damaged airways, and aggravation of lung diseases such as asthma, emphysema, and chronic bronchitis. Ground-level ozone is a principal chemical component of smog (smoky fog). Metro Vancouver's Air Quality Objectives state that hourly average exposure to O~3~ should not exceed 82 ppb, and that 8-hour average exposure to O~3~ should not exceed 62 ppb.
 
 In indoor environments, where there is no sunlight, ozone concentrations are generally very low.
 
@@ -268,21 +581,57 @@ In indoor environments, where there is no sunlight, ozone concentrations are gen
 O3_low = 0
 O3_lim = 62
 
+diurnal_O3_outdoor = timeVariation(outdoor_data,pollutant="O3",
+  ylab = "O3 (ppb)", xlab = "Hour", cols = "blue",
+  ref.y = list(h = 82, lty = 1, lwd = 2, col = "red"))
+diurnal_O3_indoor = timeVariation(indoor_data,pollutant="O3",
+  ylab = "O3 (ppb)", xlab = "Hour", cols = "blue",
+  ref.y = list(h = 82, lty = 1, lwd = 2, col = "red"))
+
+box_O3_outdoor <- ggplot(outdoor_data, aes(x = "", y = O3)) +
+  geom_boxplot(fill = "#E41A1C") +
+  labs(y = "O3 (ppb)", x = "") +
+  theme_minimal()
+box_O3_indoor <- ggplot(indoor_data, aes(x = "", y = O3)) +
+  geom_boxplot(fill = "#E41A1C") +
+  labs(y = "O3 (ppb)", x = "") +
+  theme_minimal()
+
+# Take out after
 ts_O3 = timePlot(data, pollutant = "O3", avg.time = "1 hour", xlab = "Date", ylab = "O3 (ppb)", lty = 1, lwd=2)
 diurnal_O3 = timeVariation(data,pollutant="O3", ylab = "O3 (ppb)", xlab = "Hour")
 box_O3 <- ggplot(data, aes(x = "", y = O3)) +
     geom_boxplot(fill = "#E41A1C") +
     labs(y = expression(O[3]~"(ppb)")) +
     theme_minimal()
-
 ```
 
 ## Time series plot
 
 ```{r timeseries_O3, echo = FALSE, fig.width=13,fig.height=6}
-plot(ts_O3)
+# Get ranges first
+xrange_CO <- range(c(outdoor_data_averaged$date, indoor_data_averaged$date))
+yrange_CO <- range(c(outdoor_data_averaged$CO, indoor_data_averaged$CO))
+
+# Empty plot
+plot(NA, xlim = xrange_CO, ylim = yrange_CO,
+     xlab = "Date", ylab = "CO (ppm)", xaxt = "n")
+
+# Add lines
+lines(outdoor_data_averaged$date, outdoor_data_averaged$CO, col = "blue")
+lines(indoor_data_averaged$date, indoor_data_averaged$CO, col = "red")
+axis.POSIXct(1, outdoor_data$date, format = "%b %d")
+
+# Add legend
+legend(x = "topright", box.col = "black",
+       bg = "#fafaa4", box.lwd = 2,
+       legend = c(
+         "Outdoor CO Concentrations",
+         "Indoor CO Concentrations"
+       ),
+       fill = c("blue", "red"))
 ```
-`r fig_cap(12, caption = "Timeseries plot of indoor O~3~ concentrations during April 29 - May 9. The data is time-averaged over 1 hour time intervals.", display = "full")`
+`r fig_cap(19, caption = "Timeseries plot of O~3~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
 
 ## Hourly average plot
 
@@ -290,7 +639,7 @@ plot(ts_O3)
 plot(diurnal_O3, subset = "hour")
 ```
 
-`r fig_cap(13, caption = "Hourly average plot of indoor O~3~ concentrations during during April 29 - May 9.", display = "full")`
+`r fig_cap(16, caption = "Hourly average plot of indoor O~3~ concentrations during during April 29 - May 9.", display = "full")`
 
 
 ## Box plots
@@ -298,7 +647,7 @@ plot(diurnal_O3, subset = "hour")
 plot(box_O3)
 ```
 
-`r fig_cap(14, caption = "Box plots of indoor O~3~ concentrations during during April 29 - May 9.", display = "full")`
+`r fig_cap(17, caption = "Box plots of indoor O~3~ concentrations during during April 29 - May 9.", display = "full")`
 
 # Carbon dioxoide (CO~2~)
 
@@ -324,7 +673,7 @@ box_CO2 <- ggplot(data, aes(x = "", y = CO2)) +
 ```{r timeseries_CO2, echo = FALSE, fig.width=13,fig.height=6}
 plot(ts_CO2)
 ```
-`r fig_cap(15, caption = "Timeseries plot of indoor CO~2~ concentrations during April 29 - May 9. The data is time-averaged over 1 hour time intervals.", display = "full")`
+`r fig_cap(18, caption = "Timeseries plot of indoor CO~2~ concentrations during April 29 - May 9. The data is time-averaged over 1 hour time intervals.", display = "full")`
 
 ## Hourly average plot
 
@@ -332,7 +681,7 @@ plot(ts_CO2)
 plot(diurnal_CO2, subset = "hour")
 ```
 
-`r fig_cap(16, caption = "Hourly average plot of indoor CO~2~ concentrations during during April 29 - May 9.", display = "full")`
+`r fig_cap(19, caption = "Hourly average plot of indoor CO~2~ concentrations during during April 29 - May 9.", display = "full")`
 
 
 ## Box plots
@@ -340,4 +689,4 @@ plot(diurnal_CO2, subset = "hour")
 plot(box_CO2)
 ```
 
-`r fig_cap(17, caption = "Box plots of indoor CO~2~ concentrations during during April 29 - May 9.", display = "full")`
+`r fig_cap(20, caption = "Box plots of indoor CO~2~ concentrations during during April 29 - May 9.", display = "full")` -->
