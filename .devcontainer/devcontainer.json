@@ -20,10 +20,15 @@
         // "cweijan.vscode-office"  // MS Office viewer
       ]
     }
-  }
+  },
 
 //   // Optional: environment variables
 //   "containerEnv": {
 //     "R_LIBS_USER": "/workspaces/.r-libs"
 //   }
+
+  "features": {
+    "ghcr.io/devcontainers/features/git-lfs:1": {}
+  }
+
 }
