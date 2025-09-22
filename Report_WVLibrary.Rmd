@@ -51,21 +51,17 @@ tab_cap <- captioner::captioner("Table")
 
 ```{r Load and Subset Data, include = FALSE, message = FALSE, warning = FALSE}
 # Load data
-outdoor_data <- read.csv("other_data/2021_Aug_processed.csv")
-indoor_data <- read.csv("other_data/2020_pred_processed3.csv")
+outdoor_data <- read.csv("other_data/test_csv_Nov2_with_NA.csv")
+indoor_data <- read.csv("other_data/test_csv_Nov2_with_NA.csv")
 
 data_list <- list(outdoor_data, indoor_data)
 
 for (i in seq_along(data_list)) {
-  # Ensure consistent date formatting
-  data_list[[i]]$date <- ifelse(
-    grepl(":", data_list[[i]]$date),
-    data_list[[i]]$date,
-    paste0(data_list[[i]]$date, " 00:00")   # add midnight if missing
-  )
+  # Remove rows with NAs
+  data_list[[i]] <- na.omit(data_list[[i]])
 
-  # Convert date column
-  data_list[[i]]$date <- as.POSIXct(data_list[[i]]$date, format = "%m/%d/%Y %H:%M", tz="Etc/GMT-8")
+  # Convert date column to numeric values in local time
+  data_list[[i]]$date <- as.POSIXct(as.POSIXct(data_list[[i]]$date, format="%Y-%m-%dT%H:%M:%SZ"), tz = "US/Pacific")
   
   # Rename columns
   names(data_list[[i]])[names(data_list[[i]]) == "NO2..ppb."] <- "NO2"
@@ -113,7 +109,7 @@ generate_timeseries_plot <- function(
   lines(
     outdoor_data_hr_avg$date, outdoor_data_hr_avg[[pollutant_name]], col = "blue")
   lines(indoor_data_hr_avg$date, indoor_data_hr_avg[[pollutant_name]], col = "red")
-  axis.POSIXct(1, indoor_data_hr_avg$date, format = "%b %d")  # Assumes same dates in outdoor and indoor data
+  axis.POSIXct(1, indoor_data_hr_avg$date, format = "%b %d %H:%M")  # Assumes same dates in outdoor and indoor data
 
   # Add legend
   legend(x = "topright", box.col = "black",
@@ -135,6 +131,7 @@ get_diurnal_plots <- function(
     ylab = y_label_expression,
     xlab = "Hour", cols = "blue",
     ref.y = horizontal_references)
+
   diurnal_indoor = timeVariation(indoor_dataset,pollutant=pollutant_name,
     ylab = y_label_expression,
     xlab = "Hour", cols = "blue",
