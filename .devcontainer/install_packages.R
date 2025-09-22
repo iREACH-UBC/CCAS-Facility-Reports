@@ -4,7 +4,8 @@ packages <- c(
   "collections", "lintr", "styler", "xmlparsedata",
   "latticeExtra", "patchwork", "worldmet", "readxl",
   "openair", "gtools", "caret", "plyr", "kableExtra",
-  "writexl", "grid", "gridExtra", "lattice", "png"
+  "writexl", "grid", "gridExtra", "lattice", "png",
+  "styler"
 )
 
 # Check which packages are missing

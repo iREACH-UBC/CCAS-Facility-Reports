@@ -36,9 +36,9 @@ library(lattice)
 library(latticeExtra)
 library(worldmet)
 library(readxl)
-library(grid)  # For legend grob
-library(gridExtra)  # For extra legend when plotting
-library(png)  # For forcing legend to centre
+library(grid) # For legend grob
+library(gridExtra) # For extra legend when plotting
+library(png) # For forcing legend to centre
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(message = FALSE)
 ```
@@ -61,8 +61,11 @@ for (i in seq_along(data_list)) {
   data_list[[i]] <- na.omit(data_list[[i]])
 
   # Convert date column to numeric values in local time
-  data_list[[i]]$date <- as.POSIXct(as.POSIXct(data_list[[i]]$date, format="%Y-%m-%dT%H:%M:%SZ"), tz = "US/Pacific")
-  
+  data_list[[i]]$date <- as.POSIXct(as.POSIXct(
+    data_list[[i]]$date,
+    format = "%Y-%m-%dT%H:%M:%SZ"
+  ), tz = "US/Pacific")
+
   # Rename columns
   names(data_list[[i]])[names(data_list[[i]]) == "NO2..ppb."] <- "NO2"
   names(data_list[[i]])[names(data_list[[i]]) == "NO..ppb."] <- "NO"
@@ -89,7 +92,6 @@ units <- list(
 ```
 
 ```{r Load plotting functions, include = FALSE, message = FALSE, warning = FALSE}
-
 # Formatted variables are expressions with subscripts/ special chars
 generate_timeseries_plot <- function(
     pollutant_name, y_label_expression,
@@ -97,45 +99,65 @@ generate_timeseries_plot <- function(
   # Get ranges first
   xrange <- range(c(outdoor_data_hr_avg$date, indoor_data_hr_avg$date))
   yrange <- range(
-    c(outdoor_data_hr_avg[[pollutant_name]], indoor_data_hr_avg[[pollutant_name]]))
+    c(
+      outdoor_data_hr_avg[[pollutant_name]],
+      indoor_data_hr_avg[[pollutant_name]]
+    )
+  )
 
   # Empty plot
-  plot(NA, xlim = xrange, ylim = yrange,
-      xlab = "Date",
-      ylab = y_label_expression,
-      xaxt = "n")
+  plot(NA,
+    xlim = xrange, ylim = yrange,
+    xlab = "Date",
+    ylab = y_label_expression,
+    xaxt = "n"
+  )
 
   # Add lines
   lines(
-    outdoor_data_hr_avg$date, outdoor_data_hr_avg[[pollutant_name]], col = "blue")
-  lines(indoor_data_hr_avg$date, indoor_data_hr_avg[[pollutant_name]], col = "red")
-  axis.POSIXct(1, indoor_data_hr_avg$date, format = "%b %d %H:%M")  # Assumes same dates in outdoor and indoor data
+    outdoor_data_hr_avg$date, outdoor_data_hr_avg[[pollutant_name]],
+    col = "blue"
+  )
+  lines(indoor_data_hr_avg$date,
+    indoor_data_hr_avg[[pollutant_name]],
+    col = "red"
+  )
+  axis.POSIXct(
+    1,
+    indoor_data_hr_avg$date, # Assumes same dates in outdoor and indoor data
+    format = "%b %d %H:%M"
+  )
 
   # Add legend
-  legend(x = "topright", box.col = "black",
-        bg = "#fafaa4", box.lwd = 2,
-        legend = c(
-          "Outdoor Concentrations",
-          "Indoor Concentrations"
-        ),
-        fill = c("blue", "red"))
+  legend(
+    x = "topright", box.col = "black",
+    bg = "#fafaa4", box.lwd = 2,
+    legend = c(
+      "Outdoor Concentrations",
+      "Indoor Concentrations"
+    ),
+    fill = c("blue", "red")
+  )
 }
 
 
 # For both indoor and outdoor datasets
 get_diurnal_plots <- function(
-  outdoor_dataset, indoor_dataset, pollutant_name,
-  y_label_expression, horizontal_references
-){
-  diurnal_outdoor = timeVariation(outdoor_dataset,pollutant=pollutant_name,
+    outdoor_dataset, indoor_dataset, pollutant_name,
+    y_label_expression, horizontal_references) {
+  diurnal_outdoor <- timeVariation(outdoor_dataset,
+    pollutant = pollutant_name,
     ylab = y_label_expression,
     xlab = "Hour", cols = "blue",
-    ref.y = horizontal_references)
+    ref.y = horizontal_references
+  )
 
-  diurnal_indoor = timeVariation(indoor_dataset,pollutant=pollutant_name,
+  diurnal_indoor <- timeVariation(indoor_dataset,
+    pollutant = pollutant_name,
     ylab = y_label_expression,
     xlab = "Hour", cols = "blue",
-    ref.y = horizontal_references)
+    ref.y = horizontal_references
+  )
 
   return(list("outdoor_plot" = diurnal_outdoor, "indoor_plot" = diurnal_indoor))
 }
@@ -143,10 +165,11 @@ get_diurnal_plots <- function(
 
 # For both indoor and outdoor datasets
 get_box_plots <- function(
-  outdoor_dataset, indoor_dataset, pollutant_name,
-  y_label_expression
-){
-  box_outdoor <- ggplot(outdoor_dataset, aes(x = "", y = !!sym(pollutant_name))) +
+    outdoor_dataset, indoor_dataset, pollutant_name,
+    y_label_expression) {
+  box_outdoor <- ggplot(
+    outdoor_dataset, aes(x = "", y = !!sym(pollutant_name))
+  ) +
     geom_boxplot(fill = "#E41A1C") +
     labs(y = y_label_expression, x = "") +
     theme_minimal()
@@ -224,10 +247,10 @@ Air pollutant concentrations are reported here with three units:
 NO~x~ is the combination of nitrogen monoxide (NO) and nitrogen dioxide (NO~2~). Nitrogen monoxide (NO) is formed when nitrogen and oxygen in combustion air combine with one another at the high temperatures experienced in vehicle engines. NO further combines with oxygen to create nitrogen dioxide (NO~2~). In this report we summarize both total NO~x~ and NO~2~. The effects of NO~2~ exposure include increased inflammation of the airways, coughing and wheezing, reduced lung function, and the onset of asthma and impairment of lung development in children. Metro Vancouver has set air quality recommendations for NO~2~, stating that hourly average exposure to NO~2~ should not exceed 60 ppb, and that annual average exposure to NO~2~ should not exceed 17 ppb. However, because there is no known minimum threshold exposure to (NO~2~) that causes these adverse health impacts, we recommend limiting the exposure to NO~x~ to as low as reasonably achievable. 
 
 ```{r NOx_setup, include=FALSE}
-NOx_low = 0
-NOx_lim = 50
-outdoor_data = outdoor_data %>% mutate(NOx = NO + NO2)
-indoor_data = indoor_data %>% mutate(NOx = NO + NO2)
+NOx_low <- 0
+NOx_lim <- 50
+outdoor_data <- outdoor_data %>% mutate(NOx = NO + NO2)
+indoor_data <- indoor_data %>% mutate(NOx = NO + NO2)
 
 # Hourly averages
 outdoor_data_averaged <- timeAverage(outdoor_data, avg.time = "hour")
@@ -239,29 +262,54 @@ make_NO2_CAAQS_legend <- function() {
   plot.new()
   legend(
     x = "center", y = "center",
-    title="CAAQS Hourly NO2 (ppb) Management Levels",
-    legend=c("Green (<=20, Not Displayed)", "Yellow (21-31)", "Orange (32-42)", "Red (>42)"),
-    col=c("green", "#f3d020", "orange", "red"),
-    lty=1, lwd=2, bty="n", cex=0.8, xpd = NA)
+    title = "CAAQS Hourly NO2 (ppb) Management Levels",
+    legend = c(
+      "Green (<=20, Not Displayed)",
+      "Yellow (21-31)",
+      "Orange (32-42)",
+      "Red (>42)"
+    ),
+    col = c("green", "#f3d020", "orange", "red"),
+    lty = 1, lwd = 2, bty = "n", cex = 0.8, xpd = NA
+  )
 }
 
-NOx_diurnals <- get_diurnal_plots(outdoor_data, indoor_data, "NOx", expression(paste(NO[x], " (ppb)")), NULL)
-NO2_diurnals <- get_diurnal_plots(outdoor_data, indoor_data, "NO2", expression(paste(NO[2], " (ppb)")), list(h=c(21, 32, 42), lty = 1, lwd = 2, col = c("#f3d020", "orange", "red")))
+NOx_diurnals <- get_diurnal_plots(
+  outdoor_data,
+  indoor_data,
+  "NOx", expression(paste(NO[x], " (ppb)")), NULL
+)
+NO2_diurnals <- get_diurnal_plots(
+  outdoor_data, indoor_data,
+  "NO2", expression(paste(NO[2], " (ppb)")),
+  list(
+    h = c(21, 32, 42),
+    lty = 1, lwd = 2, col = c("#f3d020", "orange", "red")
+  )
+)
 
-NOx_box_plots <- get_box_plots(outdoor_data, indoor_data, "NOx", expression(paste(NO[x], " (ppb)")))
-NO2_box_plots <- get_box_plots(outdoor_data, indoor_data, "NO2", expression(paste(NO[2], " (ppb)")))
+NOx_box_plots <- get_box_plots(
+  outdoor_data, indoor_data, "NOx", expression(paste(NO[x], " (ppb)"))
+)
+NO2_box_plots <- get_box_plots(
+  outdoor_data, indoor_data, "NO2", expression(paste(NO[2], " (ppb)"))
+)
 ```
 ## Time series plot
 
 ```{r timeseries_NOx, echo = FALSE, fig.width=13,fig.height=6}
-generate_timeseries_plot("NOx", expression(paste(NO[x], " (ppb)")),
-  outdoor_data_averaged, indoor_data_averaged)
+generate_timeseries_plot(
+  "NOx", expression(paste(NO[x], " (ppb)")),
+  outdoor_data_averaged, indoor_data_averaged
+)
 ```
 `r fig_cap(1, caption = "Timeseries plot of NO~x~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
 
 ```{r timeseries_NO2, echo = FALSE, fig.width=13,fig.height=6}
-generate_timeseries_plot("NO2", expression(paste(NO[2], " (ppb)")),
-  outdoor_data_averaged, indoor_data_averaged)
+generate_timeseries_plot(
+  "NO2", expression(paste(NO[2], " (ppb)")),
+  outdoor_data_averaged, indoor_data_averaged
+)
 ```
 `r fig_cap(2, caption = "Timeseries plot of NO~2~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
 
@@ -321,8 +369,8 @@ NO2_box_plots$outdoor_plot + NO2_box_plots$indoor_plot
 PM~2.5~ is the mass fraction of particulate matter with diameters smaller than 2.5 micron. The sources of PM~2.5~ include fuel combustion from traffic and wildfires. Exposure to particulate matter can have effects on childhood health, including irritation of the eyes, nose, and throat, decreased respiratory function, the development of asthma in children. Metro Vancouver's Air Quality Objectives state that 24-hour average exposure to PM~2.5~ should not exceed 25 µg/m^3^, and that annual average exposure to PM~2.5~ should not exceed 8 µg/m^3^. However, we recommend that the exposure to (PM~2.5~) is reduced to as low as reasonably achievable, as there is no known minimum exposure threshold for individuals to experience health impacts.
 
 ```{r PM_setup, include=FALSE}
-PM_low = 0
-PM_lim = 25
+PM_low <- 0
+PM_lim <- 25
 
 # Not displayed on diurnal (hourly) plots, as these are 24-hr levels
 make_PM_CAAQS_legend <- function() {
@@ -331,24 +379,33 @@ make_PM_CAAQS_legend <- function() {
   plot.new()
   legend(
     x = "center", y = "center",
-    title= "CAAQS 24 Hour PM Management Levels",
-    legend=c("Green (<=10, Not Displayed)", "Yellow (11-17.5)", "Orange (18.5-25)", "Red (>25)"),
-    col=c("green", "#f3d020", "orange", "red"),
-    lty=1, lwd=2, bty="n", cex=0.8, xpd = NA)
+    title = "CAAQS 24 Hour PM Management Levels",
+    legend = c(
+      "Green (<=10, Not Displayed)",
+      "Yellow (11-17.5)", "Orange (18.5-25)", "Red (>25)"
+    ),
+    col = c("green", "#f3d020", "orange", "red"),
+    lty = 1, lwd = 2, bty = "n", cex = 0.8, xpd = NA
+  )
 }
 
-PM_diurnals <- get_diurnal_plots(outdoor_data, indoor_data, "PM2_5",
-  expression(paste(PM[2.5], " (", µg / m^3, ")")), NULL)
-PM_box_plots <- get_box_plots(outdoor_data, indoor_data, "PM2_5",
-  expression(paste(PM[2.5], " (", µg / m^3, ")")))
-
+PM_diurnals <- get_diurnal_plots(
+  outdoor_data, indoor_data, "PM2_5",
+  expression(paste(PM[2.5], " (", µg / m^3, ")")), NULL
+)
+PM_box_plots <- get_box_plots(
+  outdoor_data, indoor_data, "PM2_5",
+  expression(paste(PM[2.5], " (", µg / m^3, ")"))
+)
 ```
 
 ## Time series plot
 
 ```{r timeseries_PM, echo = FALSE, fig.width=13,fig.height=6}
-generate_timeseries_plot("PM2_5", expression(paste(PM[2.5], " (", µg / m^3, ")")),
-  outdoor_data_averaged, indoor_data_averaged)
+generate_timeseries_plot(
+  "PM2_5", expression(paste(PM[2.5], " (", µg / m^3, ")")),
+  outdoor_data_averaged, indoor_data_averaged
+)
 ```
 `r fig_cap(10, caption = "Timeseries plot of PM~2.5~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
 
@@ -386,21 +443,26 @@ PM_box_plots$outdoor_plot + PM_box_plots$indoor_plot
 Carbon monoxide (CO) is a byproduct of incomplete combustion and is associated with the burning of fossil fuels and wildfire smoke events. Metro Vancouver's Air Quality Objectives state that hourly average concentration of CO should not exceed 13 ppm, and that 8-hour average concentration of CO should not exceed 5 ppm. Similarly, Health Canada recommends that the hourly average concentration of indoor CO does not exceed 25 ppm, and that 24-hour average concentration of indoor CO does not exceed 10 ppm.
 
 ```{r CO_setup, include=FALSE}
-CO_low = 0
-CO_lim = 13
+CO_low <- 0
+CO_lim <- 13
 
-CO_diurnals <- get_diurnal_plots(outdoor_data, indoor_data, "CO",
-  "CO (ppm)", list(h = 13, lty = 1, lwd = 2, col = "red"))
-CO_box_plots <- get_box_plots(outdoor_data, indoor_data, "CO",
-  "CO (ppm)")
-
+CO_diurnals <- get_diurnal_plots(
+  outdoor_data, indoor_data, "CO",
+  "CO (ppm)", list(h = 13, lty = 1, lwd = 2, col = "red")
+)
+CO_box_plots <- get_box_plots(
+  outdoor_data, indoor_data, "CO",
+  "CO (ppm)"
+)
 ```
 
 ## Time series plot
 
 ```{r timeseries_CO, echo = FALSE, fig.width=13,fig.height=6}
-generate_timeseries_plot("CO", "CO (ppm)",
-  outdoor_data_averaged, indoor_data_averaged)
+generate_timeseries_plot(
+  "CO", "CO (ppm)",
+  outdoor_data_averaged, indoor_data_averaged
+)
 ```
 `r fig_cap(15, caption = "Timeseries plot of CO concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
 
@@ -432,22 +494,27 @@ Ground-level ozone (O~3~) is not a  direct traffic-related emission; however, it
 In indoor environments, where there is no sunlight, ozone concentrations are generally very low.
 
 ```{r O3_setup, include=FALSE}
-O3_low = 0
-O3_lim = 62
+O3_low <- 0
+O3_lim <- 62
 
-O3_diurnals <- get_diurnal_plots(outdoor_data, indoor_data, "O3",
+O3_diurnals <- get_diurnal_plots(
+  outdoor_data, indoor_data, "O3",
   expression(paste(O[3], " (ppb)")),
-  list(h = 82, lty = 1, lwd = 2, col = "red"))
-O3_box_plots <- get_box_plots(outdoor_data, indoor_data, "O3",
-  expression(paste(O[3], " (ppb)")))
-
+  list(h = 82, lty = 1, lwd = 2, col = "red")
+)
+O3_box_plots <- get_box_plots(
+  outdoor_data, indoor_data, "O3",
+  expression(paste(O[3], " (ppb)"))
+)
 ```
 
 ## Time series plot
 
 ```{r timeseries_O3, echo = FALSE, fig.width=13,fig.height=6}
-generate_timeseries_plot("O3", expression(paste(O[3], " (ppb)")),
-  outdoor_data_averaged, indoor_data_averaged)
+generate_timeseries_plot(
+  "O3", expression(paste(O[3], " (ppb)")),
+  outdoor_data_averaged, indoor_data_averaged
+)
 ```
 `r fig_cap(19, caption = "Timeseries plot of O~3~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
 
@@ -480,20 +547,26 @@ Carbon dioxide (CO~2~) is a pollutant that comes from the combustion of organic 
 CO~2~ is not typically considered an air pollutant (there is no Metro Vancouver Air Quality Objective), but it is the primary constituent that contributes to climate change. It can also be a good marker of indoor ventilation.
 
 ```{r CO2_setup, include=FALSE}
-CO2_low = 0
-CO2_lim = 1000
+CO2_low <- 0
+CO2_lim <- 1000
 
-CO2_diurnals <- get_diurnal_plots(outdoor_data, indoor_data, "CO2",
-  expression(paste(CO[2], " (ppm)")), NULL)
-CO2_box_plots <- get_box_plots(outdoor_data, indoor_data, "CO2",
-  expression(paste(CO[2], " (ppm)")))
+CO2_diurnals <- get_diurnal_plots(
+  outdoor_data, indoor_data, "CO2",
+  expression(paste(CO[2], " (ppm)")), NULL
+)
+CO2_box_plots <- get_box_plots(
+  outdoor_data, indoor_data, "CO2",
+  expression(paste(CO[2], " (ppm)"))
+)
 ```
 
 ## Time series plot
 
 ```{r timeseries_CO2, echo = FALSE, fig.width=13,fig.height=6}
-generate_timeseries_plot("CO2", expression(paste(CO[2], " (ppm)")),
-  outdoor_data_averaged, indoor_data_averaged)
+generate_timeseries_plot(
+  "CO2", expression(paste(CO[2], " (ppm)")),
+  outdoor_data_averaged, indoor_data_averaged
+)
 ```
 `r fig_cap(23, caption = "Timeseries plot of indoor CO~2~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
 
