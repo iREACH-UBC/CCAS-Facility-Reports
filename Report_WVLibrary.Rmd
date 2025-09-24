@@ -1,5 +1,5 @@
 ---
-title: 'West Vancouver Library - Preliminary Indoor AQ Data'
+title: 'West Vancouver Library - Preliminary Outdoor and Indoor AQ Data'
 date: "`r Sys.Date()`"
 output:
   pdf_document:
