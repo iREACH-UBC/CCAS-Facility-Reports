@@ -51,8 +51,8 @@ tab_cap <- captioner::captioner("Table")
 
 ```{r Load and Subset Data, include = FALSE, message = FALSE, warning = FALSE}
 # Load data
-outdoor_data <- read.csv("other_data/2021_Aug_processed.csv")
-indoor_data <- read.csv("other_data/2020_pred_processed3.csv")
+outdoor_data <- read.csv("other_data/2021_outdoor_Aug_data_with_AQHI.csv")
+indoor_data <- read.csv("other_data/2020_indoor_Aug_data_with_AQHI.csv")
 
 data_list <- list(outdoor_data, indoor_data)
 
@@ -66,12 +66,6 @@ for (i in seq_along(data_list)) {
     data_list[[i]]$date,
     paste0(data_list[[i]]$date, " 00:00") # add midnight if missing
   )
-
-  # # Convert date column to numeric values in local time
-  # data_list[[i]]$date <- as.POSIXct(as.POSIXct(
-  #   data_list[[i]]$date,
-  #   format = "%Y-%m-%dT%H:%M:%SZ"
-  # ), tz = "US/Pacific")
 
   data_list[[i]]$date <- as.POSIXct(data_list[[i]]$date, format = "%m/%d/%Y %H:%M", tz = "Etc/GMT-8")
 
@@ -154,6 +148,43 @@ generate_timeseries_plot <- function(
 }
 
 
+generate_pollutant_calendar_plot <- function(
+  dataset, dataset_col_name, year_int, month_int,
+  title_expression, threshold_value
+) {
+  calendarPlot(
+    dataset, pollutant=dataset_col_name, year=year_int,
+    month=month_int, limits = c(0, threshold_value),
+    cols = c("green", "yellow", "red", "#490076"),
+    main = title_expression
+  )
+}
+
+generate_AQHI_calendar_plot <- function(
+  dataset, dataset_col_name, year_int, month_int,
+  is_outdoor_data
+) {
+  if (is_outdoor_data) {
+    title <- "Outdoor Air Quality Health Index"
+  } else {
+    title <- "Indoor Air Quality Health Index"
+  }
+  key_labels <- c("Low - 1", "Low - 2", "Low - 3", "Moderate - 4", "Moderate - 5",
+    "Moderate - 6", "High - 7", "High - 8", "High - 9",
+    "High - 10", "Extreme - 10+")
+
+  colours <- c("#00ccff", "#0099cc", "#006699", "#ffff00", "#ffcc00",
+    "#ff9933", "#fe6666", "#ff0000", "#cc0000", "#990000", "#660000")
+
+  index_breaks <- c(0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5,10.5,Inf)
+  
+  calendarPlot(
+    dataset, pollutant=dataset_col_name, year=year_int,
+    month=month_int, main = title, breaks = index_breaks,
+    cols = colours, labels = key_labels
+  )
+}
+
 # For both indoor and outdoor datasets
 get_diurnal_plots <- function(
     outdoor_dataset, indoor_dataset, pollutant_name,
@@ -206,20 +237,27 @@ get_box_plots <- function(
   return(list("outdoor_plot" = box_outdoor, "indoor_plot" = box_indoor))
 }
 
-display_standalone_legend <- function(make_legend_function) {
-  # Create a temporary PNG file to help centre legend
-  temp_file <- tempfile(fileext = ".png")
-  png(temp_file, width = 1500, height = 500, res = 300, bg = "white")
-  make_legend_function()
-  invisible(dev.off())
-
-  # Display centred image
-  img <- readPNG(temp_file)
-  grid.newpage()
-  grid.raster(img, x = 0.6, y = 0.5)
-
-  # Clean up
-  unlink(temp_file)
+make_CAAQS_legend <- function(legend_title,
+  grn_val, ylw_val1, ylw_val2, org_val1,
+  org_val2, red_val) {
+  op <- par(no.readonly = TRUE)
+  plot(
+    0, 0, type = "n", axes = FALSE, xlab = "", ylab = "",
+    xlim = c(0, 1), ylim = c(0, 1)
+  )
+  legend(
+    "center",
+    title = legend_title,
+    legend = c(sprintf("Green (<=%s)", grn_val), sprintf("Yellow (%s-%s)",
+      ylw_val1, ylw_val2), sprintf("Orange (%s-%s)",
+      org_val1, org_val2), sprintf("Red (>%s)", red_val)),
+    pch = 22,
+    pt.bg = c("#187a1840", "#ffea0060", "#ff800040", "#ff000040"),
+    col = "black",
+    pt.cex = 2,
+    bty = "n", cex = 0.8, xpd = NA
+  )
+  par(op)
 }
 ```
 
@@ -236,13 +274,17 @@ If you have questions about this report, please email Prof. Naomi Zimmerman, Car
 
 # Study Instrumentation
 
-To collect the air pollutant data at your facility, a low-cost air pollutant sensor, the SENSIT RAMP (remote air quality monitoring platform) was deployed. Low-cost sensors are powerful tools that can be used to make air pollution data more accessible. However, because these sensors are lower-cost, it is possible for the sensors to fail, and calibrations must be performed on the raw data to ensure accuracy. Once the sensors are properly calibrated, their data are generally reliable. The reported data has been calibrated.
+To collect the air pollutant data at your facility, low-cost air pollutant sensors, the SENSIT RAMP (remote air quality monitoring platform) and/or the QuantAQ MODULAIR were deployed. Low-cost sensors are powerful tools that can be used to make air pollution data more accessible. However, because these sensors are lower-cost, it is possible for the sensors to fail, and calibrations must be performed on the raw data to ensure accuracy. Once the sensors are properly calibrated, their data are generally reliable. The reported data has been calibrated.
 
 # How we are summarizing air pollution data
 
 ## Time Series Plots
 
 A time series plots the concentration of a given pollutant against time to visualize the variation of each pollutant over the monitoring period. Indoor and outdoor pollutant data were averaged over 1-hour time intervals and plotted on the same graph for easy comparison.
+
+## Calendar Plots
+
+A calendar plot is a visualization of the 24-hour average concentrations of a pollutant over the course of the deployment. The dates on the calendar are coloured according to the relative concentrations of the pollutant. The dates are coloured on a gradient, with the darker purples corresponding to measured concentrations approaching the exposure limits set by regulatory bodies.
 
 ## Hourly Average Plots
 
@@ -278,26 +320,16 @@ outdoor_data <- outdoor_data %>% mutate(NOx = NO + NO2)
 indoor_data <- indoor_data %>% mutate(NOx = NO + NO2)
 
 # Hourly averages
-outdoor_data_averaged <- timeAverage(outdoor_data, avg.time = "hour")
-indoor_data_averaged <- timeAverage(indoor_data, avg.time = "hour")
+outdoor_data_hr_avg <- timeAverage(outdoor_data, avg.time = "hour")
+indoor_data_hr_avg <- timeAverage(indoor_data, avg.time = "hour")
 
-make_NO2_CAAQS_legend <- function() {
-  layout(1)
-  par(mar = c(0, 0, 0, 0))
-  plot.new()
-  legend(
-    x = "center", y = "center",
-    title = "CAAQS Hourly NO2 (ppb) Management Levels",
-    legend = c(
-      "Green (<=20, Not Displayed)",
-      "Yellow (21-31)",
-      "Orange (32-42)",
-      "Red (>42)"
-    ),
-    col = c("green", "#f3d020", "orange", "red"),
-    lty = 1, lwd = 2, bty = "n", cex = 0.8, xpd = NA
-  )
-}
+# 24 hr averages
+outdoor_data_24hr_avg <- timeAverage(outdoor_data, avg.time = "day")
+indoor_data_24hr_avg <- timeAverage(indoor_data, avg.time = "day")
+
+# Round AQHI after taking average
+outdoor_data_24hr_avg$AQHI <- round(outdoor_data_24hr_avg$AQHI)
+indoor_data_24hr_avg$AQHI <- round(indoor_data_24hr_avg$AQHI)
 
 NOx_diurnals <- get_diurnal_plots(
   outdoor_data,
@@ -306,12 +338,24 @@ NOx_diurnals <- get_diurnal_plots(
 )
 NO2_diurnals <- get_diurnal_plots(
   outdoor_data, indoor_data,
-  "NO2", expression(paste(NO[2], " (ppb)")),
-  list(
-    h = c(21, 32, 42),
-    lty = 1, lwd = 2, col = c("#f3d020", "orange", "red")
-  )
+  "NO2", expression(paste(NO[2], " (ppb)")), NULL
 )
+
+for (i in seq_along(NO2_diurnals)) {
+  NO2_diurnals[[i]] <- NO2_diurnals[[i]] + layer({
+    rects <- list(
+      list(0, 23, 0, 21,  "#187a1840"),
+      list(0, 23, 20, 32, "#ffea0060"),
+      list(0, 23, 31, 42, "#ff800040"),
+      list(0, 23, 42, 100, "#ff000040")
+    )
+    for (r in rects) {
+      panel.rect(xleft = r[[1]], xright = r[[2]],
+                 ybottom = r[[3]], ytop = r[[4]],
+                 col = r[[5]], border = NA)
+    }
+  }, under = TRUE)
+}
 
 NOx_box_plots <- get_box_plots(
   outdoor_data, indoor_data, "NOx", expression(paste(NO[x], " (ppb)"))
@@ -320,12 +364,12 @@ NO2_box_plots <- get_box_plots(
   outdoor_data, indoor_data, "NO2", expression(paste(NO[2], " (ppb)"))
 )
 ```
-## Time series plot
+## Time series plots
 
 ```{r timeseries_NOx, echo = FALSE, fig.width=13,fig.height=6}
 generate_timeseries_plot(
   "NOx", expression(paste(NO[x], " (ppb)")),
-  outdoor_data_averaged, indoor_data_averaged
+  outdoor_data_hr_avg, indoor_data_hr_avg
 )
 ```
 `r fig_cap(1, caption = "Timeseries plot of NO~x~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
@@ -333,44 +377,60 @@ generate_timeseries_plot(
 ```{r timeseries_NO2, echo = FALSE, fig.width=13,fig.height=6}
 generate_timeseries_plot(
   "NO2", expression(paste(NO[2], " (ppb)")),
-  outdoor_data_averaged, indoor_data_averaged
+  outdoor_data_hr_avg, indoor_data_hr_avg
 )
 ```
 `r fig_cap(2, caption = "Timeseries plot of NO~2~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
 
+## Calendar plots
 
-## Hourly average plot
+```{r NOx calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "NOx", year_int = 2025,
+month_int = 8, title_expression = "Outdoor NOx Data (ppb)", threshold_value = 42)
+```
+`r fig_cap(3, caption = "Calendar plot of outdoor NO~x~ concentrations during August 2025.", display = "full")`
+
+```{r NOx calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "NOx", year_int = 2025,
+month_int = 8, title_expression = "Indoor NOx Data (ppb)", threshold_value = 42)
+```
+`r fig_cap(4, caption = "Calendar plot of indoor NO~x~ concentrations during August 2025.", display = "full")`
+
+## Hourly average plots
 
 ```{r diurnal_NOx_outdoor, fig.height=3, echo=FALSE}
 plot(NOx_diurnals$outdoor_plot)
 ```
 
-`r fig_cap(3, caption = "Hourly average plot of outdoor NO~x~ concentrations during August 2025.", display = "full")`
+`r fig_cap(5, caption = "Hourly average plot of outdoor NO~x~ concentrations during August 2025.", display = "full")`
 
 ```{r diurnal_NOx_indoor, fig.height=3, echo=FALSE}
 plot(NOx_diurnals$indoor_plot)
 ```
 
-`r fig_cap(4, caption = "Hourly average plot of indoor NO~x~ concentrations during August 2025.", display = "full")`
+`r fig_cap(6, caption = "Hourly average plot of indoor NO~x~ concentrations during August 2025.", display = "full")`
 
 
-```{r NO2_legend, fig.height=3, echo = FALSE}
-display_standalone_legend(make_NO2_CAAQS_legend)
+```{r NO2 CAAQS Legend, echo = FALSE, fig.width=4, fig.height=3, fig.align="center"}
+make_CAAQS_legend(legend_title = expression(paste(
+    "CAAQS Hourly ", NO[2], " (ppb) Management Levels")),
+  grn_val = 20, ylw_val1 = 21, ylw_val2 = 31, org_val1 = 32,
+  org_val2 = 42, red_val = 42)
 ```
 
-`r fig_cap(5, caption = "CAAQS Hourly Management Levels for NO~2~.", display = "full")`
+`r fig_cap(7, caption = "CAAQS Hourly Management Levels for NO~2~.", display = "full")`
 
 ```{r diurnal_NO2_outdoor, fig.height=3, echo=FALSE}
 plot(NO2_diurnals$outdoor_plot)
 ```
 
-`r fig_cap(6, caption = "Hourly average plot of outdoor NO~2~ concentrations during August 2025.", display = "full")`
+`r fig_cap(8, caption = "Hourly average plot of outdoor NO~2~ concentrations during August 2025.", display = "full")`
 
 ```{r diurnal_NO2_indoor, fig.height=3, echo=FALSE}
 plot(NO2_diurnals$indoor_plot)
 ```
 
-`r fig_cap(7, caption = "Hourly average plot of indoor NO~2~ concentrations during August 2025.", display = "full")`
+`r fig_cap(9, caption = "Hourly average plot of indoor NO~2~ concentrations during August 2025.", display = "full")`
 
 ## Box plots
 
@@ -378,14 +438,14 @@ plot(NO2_diurnals$indoor_plot)
 NOx_box_plots$outdoor_plot + NOx_box_plots$indoor_plot
 ```
 
-`r fig_cap(8, caption = "Box plots of outdoor (left) and indoor (right) NO~x~ concentrations during August 2025.", display = "full")`
+`r fig_cap(10, caption = "Box plots of outdoor (left) and indoor (right) NO~x~ concentrations during August 2025.", display = "full")`
 
 
 ```{r box_NO2, fig.height=4, fig.width=4, echo=FALSE}
 NO2_box_plots$outdoor_plot + NO2_box_plots$indoor_plot
 ```
 
-`r fig_cap(9, caption = "Box plots of outdoor (left) and indoor (right) NO~2~ concentrations during August 2025.", display = "full")`
+`r fig_cap(11, caption = "Box plots of outdoor (left) and indoor (right) NO~2~ concentrations during August 2025.", display = "full")`
 
 # Particulate Matter (PM~2.5~)
 
@@ -396,23 +456,6 @@ PM~2.5~ is the mass fraction of particulate matter with diameters smaller than 2
 ```{r PM_setup, include=FALSE}
 PM_low <- 0
 PM_lim <- 25
-
-# Not displayed on diurnal (hourly) plots, as these are 24-hr levels
-make_PM_CAAQS_legend <- function() {
-  layout(1)
-  par(mar = c(0, 0, 0, 0))
-  plot.new()
-  legend(
-    x = "center", y = "center",
-    title = "CAAQS 24 Hour PM Management Levels",
-    legend = c(
-      "Green (<=10, Not Displayed)",
-      "Yellow (11-17.5)", "Orange (18.5-25)", "Red (>25)"
-    ),
-    col = c("green", "#f3d020", "orange", "red"),
-    lty = 1, lwd = 2, bty = "n", cex = 0.8, xpd = NA
-  )
-}
 
 PM_diurnals <- get_diurnal_plots(
   outdoor_data, indoor_data, "PM2_5",
@@ -429,30 +472,47 @@ PM_box_plots <- get_box_plots(
 ```{r timeseries_PM, echo = FALSE, fig.width=13,fig.height=6}
 generate_timeseries_plot(
   "PM2_5", expression(paste(PM[2.5], " (", µg / m^3, ")")),
-  outdoor_data_averaged, indoor_data_averaged
+  outdoor_data_hr_avg, indoor_data_hr_avg
 )
 ```
-`r fig_cap(10, caption = "Timeseries plot of PM~2.5~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
+`r fig_cap(12, caption = "Timeseries plot of PM~2.5~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
 
-## Hourly average plot
+## Calendar plots
 
-```{r PM_legend, fig.height=3, echo = FALSE}
-display_standalone_legend(make_PM_CAAQS_legend)
+```{r PM2.5 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "PM2_5", year_int = 2025,
+month_int = 8, title_expression = expression(paste("Outdoor ", PM[2.5], " (", µg / m^3, ")")), threshold_value = 25)
+```
+`r fig_cap(13, caption = "Calendar plot of outdoor PM~2.5~ concentrations during August 2025.", display = "full")`
+
+```{r PM2.5 calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "PM2_5", year_int = 2025,
+month_int = 8, title_expression = expression(paste("Indoor ", PM[2.5], " (", µg / m^3, ")")), threshold_value = 25)
+```
+`r fig_cap(14, caption = "Calendar plot of indoor PM~2.5~ concentrations during August 2025.", display = "full")`
+
+## Hourly average plots
+
+```{r PM2.5 CAAQS Legend, echo = FALSE, fig.width=4, fig.height=3, fig.align="center"}
+make_CAAQS_legend(legend_title = expression(paste(
+    "CAAQS 24 Hour ", PM[2.5], " (", µg / m^3, ") Management Levels")),
+  grn_val = 10, ylw_val1 = 11, ylw_val2 = 16, org_val1 = 17,
+  org_val2 = 23, red_val = 23)
 ```
 
-`r fig_cap(11, caption = "CAAQS 24-Hour Management Levels for PM~2.5~.", display = "full")`
+`r fig_cap(15, caption = "CAAQS 24-Hour Management Levels for PM~2.5~.", display = "full")`
 
 ```{r diurnal_PM_outdoor, fig.height=3, echo=FALSE}
 plot(PM_diurnals$outdoor_plot)
 ```
 
-`r fig_cap(12, caption = "Hourly average plot of outdoor PM~2.5~ concentrations during August 2025.", display = "full")`
+`r fig_cap(16, caption = "Hourly average plot of outdoor PM~2.5~ concentrations during August 2025.", display = "full")`
 
 ```{r diurnal_PM_indoor, fig.height=3, echo=FALSE}
 plot(PM_diurnals$indoor_plot)
 ```
 
-`r fig_cap(13, caption = "Hourly average plot of indoor PM~2.5~ concentrations during August 2025.", display = "full")`
+`r fig_cap(17, caption = "Hourly average plot of indoor PM~2.5~ concentrations during August 2025.", display = "full")`
 
 
 ## Box plots
@@ -460,7 +520,7 @@ plot(PM_diurnals$indoor_plot)
 PM_box_plots$outdoor_plot + PM_box_plots$indoor_plot
 ```
 
-`r fig_cap(14, caption = "Box plots of outdoor (left) and indoor (right) PM~2.5~ concentrations during August 2025.", display = "full")`
+`r fig_cap(18, caption = "Box plots of outdoor (left) and indoor (right) PM~2.5~ concentrations during August 2025.", display = "full")`
 
 
 # Carbon Monoxide (CO)
@@ -486,31 +546,45 @@ CO_box_plots <- get_box_plots(
 ```{r timeseries_CO, echo = FALSE, fig.width=13,fig.height=6}
 generate_timeseries_plot(
   "CO", "CO (ppm)",
-  outdoor_data_averaged, indoor_data_averaged
+  outdoor_data_hr_avg, indoor_data_hr_avg
 )
 ```
-`r fig_cap(15, caption = "Timeseries plot of CO concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
+`r fig_cap(19, caption = "Timeseries plot of CO concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
 
-## Hourly average plot
+## Calendar plots
+
+```{r CO calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "CO", year_int = 2025,
+month_int = 8, title_expression = "Outdoor CO (ppm)", threshold_value = 5)
+```
+`r fig_cap(20, caption = "Calendar plot of outdoor CO concentrations during August 2025.", display = "full")`
+
+```{r CO calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "CO", year_int = 2025,
+month_int = 8, title_expression = "Indoor CO (ppm)", threshold_value = 5)
+```
+`r fig_cap(21, caption = "Calendar plot of indoor CO concentrations during August 2025.", display = "full")`
+
+## Hourly average plots
 
 ```{r diurnal_CO_outdoor, fig.height=3, echo=FALSE}
 plot(CO_diurnals$outdoor_plot)
 ```
 
-`r fig_cap(16, caption = "Hourly average plot of outdoor CO concentrations during August 2025. The red horizontal line (may not be shown on graph) represents the 13 ppm CO limit from Metro Vancouver's Air Quality Objectives.", display = "full")`
+`r fig_cap(22, caption = "Hourly average plot of outdoor CO concentrations during August 2025. The red horizontal line (may not be shown on graph) represents the 13 ppm CO limit from Metro Vancouver's Air Quality Objectives.", display = "full")`
 
 ```{r diurnal_CO_indoor, fig.height=3, echo=FALSE}
 plot(CO_diurnals$indoor_plot)
 ```
 
-`r fig_cap(17, caption = "Hourly average plot of indoor CO concentrations during August 2025. The red horizontal line (may not be shown on graph) represents the 13 ppm CO limit from Metro Vancouver's Air Quality Objectives.", display = "full")`
+`r fig_cap(23, caption = "Hourly average plot of indoor CO concentrations during August 2025. The red horizontal line (may not be shown on graph) represents the 13 ppm CO limit from Metro Vancouver's Air Quality Objectives.", display = "full")`
 
 ## Box plots
 ```{r box_CO, fig.height=4, fig.width=4, echo=FALSE}
 CO_box_plots$outdoor_plot + CO_box_plots$indoor_plot
 ```
 
-`r fig_cap(18, caption = "Box plots of outdoor (left) and indoor (right) CO concentrations during August 2025.", display = "full")`
+`r fig_cap(24, caption = "Box plots of outdoor (left) and indoor (right) CO concentrations during August 2025.", display = "full")`
 
 # Ozone (O~3~)
 
@@ -538,10 +612,24 @@ O3_box_plots <- get_box_plots(
 ```{r timeseries_O3, echo = FALSE, fig.width=13,fig.height=6}
 generate_timeseries_plot(
   "O3", expression(paste(O[3], " (ppb)")),
-  outdoor_data_averaged, indoor_data_averaged
+  outdoor_data_hr_avg, indoor_data_hr_avg
 )
 ```
-`r fig_cap(19, caption = "Timeseries plot of O~3~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
+`r fig_cap(25, caption = "Timeseries plot of O~3~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
+
+## Calendar plots
+
+```{r O3 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "O3", year_int = 2025,
+month_int = 8, title_expression = "Outdoor O3 (ppb)", threshold_value = 62)
+```
+`r fig_cap(26, caption = "Calendar plot of outdoor O~3~ concentrations during August 2025.", display = "full")`
+
+```{r O3 calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "O3", year_int = 2025,
+month_int = 8, title_expression = "Indoor O3 (ppb)", threshold_value = 62)
+```
+`r fig_cap(27, caption = "Calendar plot of indoor O~3~ concentrations during August 2025.", display = "full")`
 
 ## Hourly average plots
 
@@ -549,13 +637,13 @@ generate_timeseries_plot(
 plot(O3_diurnals$outdoor_plot)
 ```
 
-`r fig_cap(20, caption = "Hourly average plot of outdoor O~3~ concentrations during August 2025. The red horizontal line at 82 ppb (may not be shown on plot) represents the Metro Vancouver Air Quality Objectives threshold.", display = "full")`
+`r fig_cap(28, caption = "Hourly average plot of outdoor O~3~ concentrations during August 2025. The red horizontal line at 82 ppb (may not be shown on plot) represents the Metro Vancouver Air Quality Objectives threshold.", display = "full")`
 
 ```{r diurnal_O3_indoors, fig.height=3, echo=FALSE}
 plot(O3_diurnals$indoor_plot)
 ```
 
-`r fig_cap(21, caption = "Hourly average plot of indoor O~3~ concentrations during August 2025. The red horizontal line at 82 ppb (may not be shown on plot) represents the Metro Vancouver Air Quality Objectives threshold.", display = "full")`
+`r fig_cap(29, caption = "Hourly average plot of indoor O~3~ concentrations during August 2025. The red horizontal line at 82 ppb (may not be shown on plot) represents the Metro Vancouver Air Quality Objectives threshold.", display = "full")`
 
 
 ## Box plots
@@ -563,7 +651,7 @@ plot(O3_diurnals$indoor_plot)
 O3_box_plots$outdoor_plot + O3_box_plots$indoor_plot
 ```
 
-`r fig_cap(22, caption = "Box plots of outdoor (left) and indoor (right) O~3~ concentrations during August 2025.", display = "full")`
+`r fig_cap(30, caption = "Box plots of outdoor (left) and indoor (right) O~3~ concentrations during August 2025.", display = "full")`
 
 # Carbon dioxoide (CO~2~)
 
@@ -590,24 +678,38 @@ CO2_box_plots <- get_box_plots(
 ```{r timeseries_CO2, echo = FALSE, fig.width=13,fig.height=6}
 generate_timeseries_plot(
   "CO2", expression(paste(CO[2], " (ppm)")),
-  outdoor_data_averaged, indoor_data_averaged
+  outdoor_data_hr_avg, indoor_data_hr_avg
 )
 ```
-`r fig_cap(23, caption = "Timeseries plot of indoor CO~2~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
+`r fig_cap(31, caption = "Timeseries plot of indoor CO~2~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
 
-## Hourly average plot
+## Calendar plots
+
+```{r CO2 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "CO2", year_int = 2025,
+month_int = 8, title_expression = "Outdoor CO2 (ppm)", threshold_value = 1000)
+```
+`r fig_cap(32, caption = "Calendar plot of outdoor CO~2~ concentrations during August 2025.", display = "full")`
+
+```{r CO2 calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "CO2", year_int = 2025,
+month_int = 8, title_expression = "Indoor CO2 (ppm)", threshold_value = 1000)
+```
+`r fig_cap(33, caption = "Calendar plot of indoor CO~2~ concentrations during August 2025.", display = "full")`
+
+## Hourly average plots
 
 ```{r diurnal_CO2_outdoor, fig.height=3, echo=FALSE}
 plot(CO2_diurnals$outdoor_plot)
 ```
 
-`r fig_cap(24, caption = "Hourly average plot of outdoor CO~2~ concentrations during August 2025.", display = "full")`
+`r fig_cap(34, caption = "Hourly average plot of outdoor CO~2~ concentrations during August 2025.", display = "full")`
 
 ```{r diurnal_CO2_indoor, fig.height=3, echo=FALSE}
 plot(CO2_diurnals$indoor_plot)
 ```
 
-`r fig_cap(25, caption = "Hourly average plot of indoor CO~2~ concentrations during August 2025.", display = "full")`
+`r fig_cap(35, caption = "Hourly average plot of indoor CO~2~ concentrations during August 2025.", display = "full")`
 
 
 ## Box plots
@@ -615,4 +717,56 @@ plot(CO2_diurnals$indoor_plot)
 CO2_box_plots$outdoor_plot + CO2_box_plots$indoor_plot
 ```
 
-`r fig_cap(26, caption = "Box plots of outdoor (left) and indoor (right) CO~2~ concentrations during August 2025.", display = "full")`
+`r fig_cap(36, caption = "Box plots of outdoor (left) and indoor (right) CO~2~ concentrations during August 2025.", display = "full")`
+
+# Air Quality Health Index (AQHI)
+
+## What is the Air Quality Health Index (AQHI)? *[paraphrased from Health Canada]*
+
+The Air Quality Health Index or “AQHI” is a scale designed to help you understand what the air quality
+around you means to your health.
+It is a health protection tool that is designed to help you make decisions to protect your health by limiting
+short-term exposure to air pollution and adjusting your activity levels during increased levels of air pollution.
+It also provides advice on how you can improve the quality of the air you breathe.
+This index pays particular attention to people who are sensitive to air pollution and provides them with
+advice on how to protect their health during air quality levels associated with low, moderate, high and very
+high health risks.
+
+## How is the AQHI calculated?
+
+In British Columbia, the AQHI is calculated concurrently in two ways, and the highest of the two values is
+reported:
+
+1. A calculation based on the relative risks of a combination of common air pollutants that is known to
+harm human health:
+    a. Ozone (O~3~) at ground level,
+    b. Particulate Matter (PM~2.5~) and
+    c. Nitrogen Dioxide (NO~2~).
+2. Particulate Matter (PM~2.5~) concentration alone
+
+## What is the scale for the AQHI?
+
+The AQHI is measured on a scale ranging from 1-10+. The AQHI index values are grouped into health risk
+categories as shown below. These categories help you to easily and quickly identify your level of risk.
+
+* 1-3 Low health
+* 4-6 Moderate health risk
+* 7-10 High health risk
+* 10 + Very high health risk
+
+From the data collected at your facility, we calculated the AQHI indoors and outdoors. These results are
+summarized with calendar plots.
+
+## Calendar plots
+
+```{r Outdoor AQHI calendar plot , echo = FALSE, fig.width=5, fig.height=4, fig.align="center"}
+generate_AQHI_calendar_plot(outdoor_data_24hr_avg, dataset_col_name = "AQHI", year_int = 2025,
+month_int = 8, is_outdoor_data = TRUE)
+```
+`r fig_cap(37, caption = "Calendar plot of outdoor AQHI at your facility during August 2025.", display = "full")`
+
+```{r Indoor AQHI calendar plot , echo = FALSE, fig.width=5, fig.height=4, fig.align="center"}
+generate_AQHI_calendar_plot(indoor_data_24hr_avg, dataset_col_name = "AQHI", year_int = 2025,
+month_int = 8, is_outdoor_data = FALSE)
+```
+`r fig_cap(38, caption = "Calendar plot of indoor AQHI at your facility during August 2025.", display = "full")`
