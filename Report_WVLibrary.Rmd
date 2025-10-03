@@ -47,6 +47,13 @@ knitr::opts_chunk$set(message = FALSE)
 set.seed(1703)
 fig_cap <- captioner::captioner()
 tab_cap <- captioner::captioner("Table")
+figure_nums <- captioner(prefix = "Figure")
+```
+
+```{r Adjustable Parameters, include = FALSE, message = FALSE, warning = FALSE}
+month_char <- "August"
+month_int <- match(month_char, month.name) # Keep as is
+year <- 2025
 ```
 
 ```{r Load and Subset Data, include = FALSE, message = FALSE, warning = FALSE}
@@ -92,6 +99,18 @@ units <- list(
   CO = "ppm",
   PM2_5 = "µg/m³"
 )
+
+# Hourly averages
+outdoor_data_hr_avg <- timeAverage(outdoor_data, avg.time = "hour")
+indoor_data_hr_avg <- timeAverage(indoor_data, avg.time = "hour")
+
+# 24 hr averages
+outdoor_data_24hr_avg <- timeAverage(outdoor_data, avg.time = "day")
+indoor_data_24hr_avg <- timeAverage(indoor_data, avg.time = "day")
+
+# Round AQHI after taking average
+outdoor_data_24hr_avg$AQHI <- round(outdoor_data_24hr_avg$AQHI)
+indoor_data_24hr_avg$AQHI <- round(indoor_data_24hr_avg$AQHI)
 ```
 
 ```{r Load plotting functions, include = FALSE, message = FALSE, warning = FALSE}
@@ -150,12 +169,12 @@ generate_timeseries_plot <- function(
 
 generate_pollutant_calendar_plot <- function(
   dataset, dataset_col_name, year_int, month_int,
-  title_expression, threshold_value
+  title_expression, threshold_value, colours
 ) {
   calendarPlot(
     dataset, pollutant=dataset_col_name, year=year_int,
     month=month_int, limits = c(0, threshold_value),
-    cols = c("green", "yellow", "red", "#490076"),
+    cols = colours,
     main = title_expression
   )
 }
@@ -171,10 +190,12 @@ generate_AQHI_calendar_plot <- function(
   }
   key_labels <- c("Low - 1", "Low - 2", "Low - 3", "Moderate - 4", "Moderate - 5",
     "Moderate - 6", "High - 7", "High - 8", "High - 9",
-    "High - 10", "Extreme - 10+")
+    "High - 10", "Extreme - 10+"
+  )
 
   colours <- c("#00ccff", "#0099cc", "#006699", "#ffff00", "#ffcc00",
-    "#ff9933", "#fe6666", "#ff0000", "#cc0000", "#990000", "#660000")
+    "#ff9933", "#fe6666", "#ff0000", "#cc0000", "#990000", "#660000"
+  )
 
   index_breaks <- c(0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5,10.5,Inf)
   
@@ -268,7 +289,7 @@ The patterns and levels of NO, NO~2~, PM~2.5~, CO, CO~2~, and O~3~ outside and i
 
 The purpose of this report is to provide the reader with a better understanding of the following:
 
-* Reading and interpreting Time Series, Hourly Average, and Box plots
+* Reading and interpreting Hourly Average, and Calendar plots
 
 If you have questions about this report, please email Prof. Naomi Zimmerman, Caroline Webber or Hugo Dignoes Ricart at  [HelloAirQuality@mech.ubc.ca](mailto:HelloAirQuality@mech.ubc.ca) 
 
@@ -278,21 +299,13 @@ To collect the air pollutant data at your facility, low-cost air pollutant senso
 
 # How we are summarizing air pollution data
 
-## Time Series Plots
-
-A time series plots the concentration of a given pollutant against time to visualize the variation of each pollutant over the monitoring period. Indoor and outdoor pollutant data were averaged over 1-hour time intervals and plotted on the same graph for easy comparison.
-
 ## Calendar Plots
 
-A calendar plot is a visualization of the 24-hour average concentrations of a pollutant over the course of the deployment. The dates on the calendar are coloured according to the relative concentrations of the pollutant. The dates are coloured on a gradient, with the darker purples corresponding to measured concentrations approaching the exposure limits set by regulatory bodies.
+A calendar plot is a visualization of the 24-hour average concentrations of a pollutant over the course of the deployment. The dates on the calendar are coloured according to the relative concentrations of the pollutant. The dates are coloured on a gradient, with the darker reds corresponding to measured concentrations approaching the exposure limits set by regulatory bodies.
 
 ## Hourly Average Plots
 
 When analyzing air pollution data, useful information can be deducted from the typical pattern of air pollution variations throughout the course of a day. An hourly average plot graphs the average concentration of a monitored pollutant at each hour of the day. Variations in the pollutant’s concentration can be used to interpret its source(s). It is important to note that each point on the daily average plot represents an average across all days for the specified hour. For example, the point at 6AM would represent the average concentration between 5-6AM over the complete period of monitoring. Day-to-day concentration variations are represented by shaded regions above or below the data point, where more day-to-day variability will be represented with larger shaded regions.
-
-## Box Plots
-
-A box plot shows how air pollution levels vary by summarizing all the measurements in a simple graphic. The box represents the middle half of the data — from the 25th to the 75th percentile — and the line inside the box shows the median (the value right in the middle), not the average. The “whiskers” extending from the box show the typical range of values, and any dots beyond them represent unusual pollution spikes or drops (called outliers).
 
 ## Units of Measurement
 Air pollutant concentrations are reported here with three units: 
@@ -306,418 +319,6 @@ Air pollutant concentrations are reported here with three units:
 
 
 \newpage
-
-# Nitrogen Oxides (NO~x~)
-
-## Context
-
-NO~x~ is the combination of nitrogen monoxide (NO) and nitrogen dioxide (NO~2~). Nitrogen monoxide (NO) is formed when nitrogen and oxygen in combustion air combine with one another at the high temperatures experienced in vehicle engines. NO further combines with oxygen to create nitrogen dioxide (NO~2~). In this report we summarize both total NO~x~ and NO~2~. The effects of NO~2~ exposure include increased inflammation of the airways, coughing and wheezing, reduced lung function, and the onset of asthma and impairment of lung development in children. Metro Vancouver has set air quality recommendations for NO~2~, stating that hourly average exposure to NO~2~ should not exceed 60 ppb, and that annual average exposure to NO~2~ should not exceed 17 ppb. However, because there is no known minimum threshold exposure to (NO~2~) that causes these adverse health impacts, we recommend limiting the exposure to NO~x~ to as low as reasonably achievable. 
-
-```{r NOx_setup, include=FALSE}
-NOx_low <- 0
-NOx_lim <- 50
-outdoor_data <- outdoor_data %>% mutate(NOx = NO + NO2)
-indoor_data <- indoor_data %>% mutate(NOx = NO + NO2)
-
-# Hourly averages
-outdoor_data_hr_avg <- timeAverage(outdoor_data, avg.time = "hour")
-indoor_data_hr_avg <- timeAverage(indoor_data, avg.time = "hour")
-
-# 24 hr averages
-outdoor_data_24hr_avg <- timeAverage(outdoor_data, avg.time = "day")
-indoor_data_24hr_avg <- timeAverage(indoor_data, avg.time = "day")
-
-# Round AQHI after taking average
-outdoor_data_24hr_avg$AQHI <- round(outdoor_data_24hr_avg$AQHI)
-indoor_data_24hr_avg$AQHI <- round(indoor_data_24hr_avg$AQHI)
-
-NOx_diurnals <- get_diurnal_plots(
-  outdoor_data,
-  indoor_data,
-  "NOx", expression(paste(NO[x], " (ppb)")), NULL
-)
-NO2_diurnals <- get_diurnal_plots(
-  outdoor_data, indoor_data,
-  "NO2", expression(paste(NO[2], " (ppb)")), NULL
-)
-
-for (i in seq_along(NO2_diurnals)) {
-  NO2_diurnals[[i]] <- NO2_diurnals[[i]] + layer({
-    rects <- list(
-      list(0, 23, 0, 21,  "#187a1840"),
-      list(0, 23, 20, 32, "#ffea0060"),
-      list(0, 23, 31, 42, "#ff800040"),
-      list(0, 23, 42, 100, "#ff000040")
-    )
-    for (r in rects) {
-      panel.rect(xleft = r[[1]], xright = r[[2]],
-                 ybottom = r[[3]], ytop = r[[4]],
-                 col = r[[5]], border = NA)
-    }
-  }, under = TRUE)
-}
-
-NOx_box_plots <- get_box_plots(
-  outdoor_data, indoor_data, "NOx", expression(paste(NO[x], " (ppb)"))
-)
-NO2_box_plots <- get_box_plots(
-  outdoor_data, indoor_data, "NO2", expression(paste(NO[2], " (ppb)"))
-)
-```
-## Time series plots
-
-```{r timeseries_NOx, echo = FALSE, fig.width=13,fig.height=6}
-generate_timeseries_plot(
-  "NOx", expression(paste(NO[x], " (ppb)")),
-  outdoor_data_hr_avg, indoor_data_hr_avg
-)
-```
-`r fig_cap(1, caption = "Timeseries plot of NO~x~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
-
-```{r timeseries_NO2, echo = FALSE, fig.width=13,fig.height=6}
-generate_timeseries_plot(
-  "NO2", expression(paste(NO[2], " (ppb)")),
-  outdoor_data_hr_avg, indoor_data_hr_avg
-)
-```
-`r fig_cap(2, caption = "Timeseries plot of NO~2~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
-
-## Calendar plots
-
-```{r NOx calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "NOx", year_int = 2025,
-month_int = 8, title_expression = "Outdoor NOx Data (ppb)", threshold_value = 42)
-```
-`r fig_cap(3, caption = "Calendar plot of outdoor NO~x~ concentrations during August 2025.", display = "full")`
-
-```{r NOx calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "NOx", year_int = 2025,
-month_int = 8, title_expression = "Indoor NOx Data (ppb)", threshold_value = 42)
-```
-`r fig_cap(4, caption = "Calendar plot of indoor NO~x~ concentrations during August 2025.", display = "full")`
-
-## Hourly average plots
-
-```{r diurnal_NOx_outdoor, fig.height=3, echo=FALSE}
-plot(NOx_diurnals$outdoor_plot)
-```
-
-`r fig_cap(5, caption = "Hourly average plot of outdoor NO~x~ concentrations during August 2025.", display = "full")`
-
-```{r diurnal_NOx_indoor, fig.height=3, echo=FALSE}
-plot(NOx_diurnals$indoor_plot)
-```
-
-`r fig_cap(6, caption = "Hourly average plot of indoor NO~x~ concentrations during August 2025.", display = "full")`
-
-
-```{r NO2 CAAQS Legend, echo = FALSE, fig.width=4, fig.height=3, fig.align="center"}
-make_CAAQS_legend(legend_title = expression(paste(
-    "CAAQS Hourly ", NO[2], " (ppb) Management Levels")),
-  grn_val = 20, ylw_val1 = 21, ylw_val2 = 31, org_val1 = 32,
-  org_val2 = 42, red_val = 42)
-```
-
-`r fig_cap(7, caption = "CAAQS Hourly Management Levels for NO~2~.", display = "full")`
-
-```{r diurnal_NO2_outdoor, fig.height=3, echo=FALSE}
-plot(NO2_diurnals$outdoor_plot)
-```
-
-`r fig_cap(8, caption = "Hourly average plot of outdoor NO~2~ concentrations during August 2025.", display = "full")`
-
-```{r diurnal_NO2_indoor, fig.height=3, echo=FALSE}
-plot(NO2_diurnals$indoor_plot)
-```
-
-`r fig_cap(9, caption = "Hourly average plot of indoor NO~2~ concentrations during August 2025.", display = "full")`
-
-## Box plots
-
-```{r box_NOx, fig.height=4, fig.width=4, echo=FALSE}
-NOx_box_plots$outdoor_plot + NOx_box_plots$indoor_plot
-```
-
-`r fig_cap(10, caption = "Box plots of outdoor (left) and indoor (right) NO~x~ concentrations during August 2025.", display = "full")`
-
-
-```{r box_NO2, fig.height=4, fig.width=4, echo=FALSE}
-NO2_box_plots$outdoor_plot + NO2_box_plots$indoor_plot
-```
-
-`r fig_cap(11, caption = "Box plots of outdoor (left) and indoor (right) NO~2~ concentrations during August 2025.", display = "full")`
-
-# Particulate Matter (PM~2.5~)
-
-## Context
-
-PM~2.5~ is the mass fraction of particulate matter with diameters smaller than 2.5 micron. The sources of PM~2.5~ include fuel combustion from traffic and wildfires. Exposure to particulate matter can have effects on childhood health, including irritation of the eyes, nose, and throat, decreased respiratory function, the development of asthma in children. Metro Vancouver's Air Quality Objectives state that 24-hour average exposure to PM~2.5~ should not exceed 25 µg/m^3^, and that annual average exposure to PM~2.5~ should not exceed 8 µg/m^3^. However, we recommend that the exposure to (PM~2.5~) is reduced to as low as reasonably achievable, as there is no known minimum exposure threshold for individuals to experience health impacts.
-
-```{r PM_setup, include=FALSE}
-PM_low <- 0
-PM_lim <- 25
-
-PM_diurnals <- get_diurnal_plots(
-  outdoor_data, indoor_data, "PM2_5",
-  expression(paste(PM[2.5], " (", µg / m^3, ")")), NULL
-)
-PM_box_plots <- get_box_plots(
-  outdoor_data, indoor_data, "PM2_5",
-  expression(paste(PM[2.5], " (", µg / m^3, ")"))
-)
-```
-
-## Time series plot
-
-```{r timeseries_PM, echo = FALSE, fig.width=13,fig.height=6}
-generate_timeseries_plot(
-  "PM2_5", expression(paste(PM[2.5], " (", µg / m^3, ")")),
-  outdoor_data_hr_avg, indoor_data_hr_avg
-)
-```
-`r fig_cap(12, caption = "Timeseries plot of PM~2.5~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
-
-## Calendar plots
-
-```{r PM2.5 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "PM2_5", year_int = 2025,
-month_int = 8, title_expression = expression(paste("Outdoor ", PM[2.5], " (", µg / m^3, ")")), threshold_value = 25)
-```
-`r fig_cap(13, caption = "Calendar plot of outdoor PM~2.5~ concentrations during August 2025.", display = "full")`
-
-```{r PM2.5 calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "PM2_5", year_int = 2025,
-month_int = 8, title_expression = expression(paste("Indoor ", PM[2.5], " (", µg / m^3, ")")), threshold_value = 25)
-```
-`r fig_cap(14, caption = "Calendar plot of indoor PM~2.5~ concentrations during August 2025.", display = "full")`
-
-## Hourly average plots
-
-```{r PM2.5 CAAQS Legend, echo = FALSE, fig.width=4, fig.height=3, fig.align="center"}
-make_CAAQS_legend(legend_title = expression(paste(
-    "CAAQS 24 Hour ", PM[2.5], " (", µg / m^3, ") Management Levels")),
-  grn_val = 10, ylw_val1 = 11, ylw_val2 = 16, org_val1 = 17,
-  org_val2 = 23, red_val = 23)
-```
-
-`r fig_cap(15, caption = "CAAQS 24-Hour Management Levels for PM~2.5~.", display = "full")`
-
-```{r diurnal_PM_outdoor, fig.height=3, echo=FALSE}
-plot(PM_diurnals$outdoor_plot)
-```
-
-`r fig_cap(16, caption = "Hourly average plot of outdoor PM~2.5~ concentrations during August 2025.", display = "full")`
-
-```{r diurnal_PM_indoor, fig.height=3, echo=FALSE}
-plot(PM_diurnals$indoor_plot)
-```
-
-`r fig_cap(17, caption = "Hourly average plot of indoor PM~2.5~ concentrations during August 2025.", display = "full")`
-
-
-## Box plots
-```{r box_PM, fig.height=4, fig.width=4, echo=FALSE}
-PM_box_plots$outdoor_plot + PM_box_plots$indoor_plot
-```
-
-`r fig_cap(18, caption = "Box plots of outdoor (left) and indoor (right) PM~2.5~ concentrations during August 2025.", display = "full")`
-
-
-# Carbon Monoxide (CO)
-
-Carbon monoxide (CO) is a byproduct of incomplete combustion and is associated with the burning of fossil fuels and wildfire smoke events. Metro Vancouver's Air Quality Objectives state that hourly average concentration of CO should not exceed 13 ppm, and that 8-hour average concentration of CO should not exceed 5 ppm. Similarly, Health Canada recommends that the hourly average concentration of indoor CO does not exceed 25 ppm, and that 24-hour average concentration of indoor CO does not exceed 10 ppm.
-
-```{r CO_setup, include=FALSE}
-CO_low <- 0
-CO_lim <- 13
-
-CO_diurnals <- get_diurnal_plots(
-  outdoor_data, indoor_data, "CO",
-  "CO (ppm)", list(h = 13, lty = 1, lwd = 2, col = "red")
-)
-CO_box_plots <- get_box_plots(
-  outdoor_data, indoor_data, "CO",
-  "CO (ppm)"
-)
-```
-
-## Time series plot
-
-```{r timeseries_CO, echo = FALSE, fig.width=13,fig.height=6}
-generate_timeseries_plot(
-  "CO", "CO (ppm)",
-  outdoor_data_hr_avg, indoor_data_hr_avg
-)
-```
-`r fig_cap(19, caption = "Timeseries plot of CO concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
-
-## Calendar plots
-
-```{r CO calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "CO", year_int = 2025,
-month_int = 8, title_expression = "Outdoor CO (ppm)", threshold_value = 5)
-```
-`r fig_cap(20, caption = "Calendar plot of outdoor CO concentrations during August 2025.", display = "full")`
-
-```{r CO calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "CO", year_int = 2025,
-month_int = 8, title_expression = "Indoor CO (ppm)", threshold_value = 5)
-```
-`r fig_cap(21, caption = "Calendar plot of indoor CO concentrations during August 2025.", display = "full")`
-
-## Hourly average plots
-
-```{r diurnal_CO_outdoor, fig.height=3, echo=FALSE}
-plot(CO_diurnals$outdoor_plot)
-```
-
-`r fig_cap(22, caption = "Hourly average plot of outdoor CO concentrations during August 2025. The red horizontal line (may not be shown on graph) represents the 13 ppm CO limit from Metro Vancouver's Air Quality Objectives.", display = "full")`
-
-```{r diurnal_CO_indoor, fig.height=3, echo=FALSE}
-plot(CO_diurnals$indoor_plot)
-```
-
-`r fig_cap(23, caption = "Hourly average plot of indoor CO concentrations during August 2025. The red horizontal line (may not be shown on graph) represents the 13 ppm CO limit from Metro Vancouver's Air Quality Objectives.", display = "full")`
-
-## Box plots
-```{r box_CO, fig.height=4, fig.width=4, echo=FALSE}
-CO_box_plots$outdoor_plot + CO_box_plots$indoor_plot
-```
-
-`r fig_cap(24, caption = "Box plots of outdoor (left) and indoor (right) CO concentrations during August 2025.", display = "full")`
-
-# Ozone (O~3~)
-
-Ground-level ozone (O~3~) is not a  direct traffic-related emission; however, it is formed from the reaction of nitrogen oxides (NO~x~) and volatile organic compounds (VOCs) (which are traffic-related air pollutants) in the presence of sunlight. Ozone is important in the stratosphere, as it keeps us safe from harmful ultraviolet rays (UV-A and UV-B). However exposure to ground-level ozone can cause shortness of breath or hyperventilation, coughing and/or sore or scratchy throat, inflamed and damaged airways, and aggravation of lung diseases such as asthma, emphysema, and chronic bronchitis. Ground-level ozone is a principal chemical component of smog (smoky fog). Metro Vancouver's Air Quality Objectives state that hourly average exposure to O~3~ should not exceed 82 ppb, and that 8-hour average exposure to O~3~ should not exceed 62 ppb.
-
-In indoor environments, where there is no sunlight, ozone concentrations are generally very low.
-
-```{r O3_setup, include=FALSE}
-O3_low <- 0
-O3_lim <- 62
-
-O3_diurnals <- get_diurnal_plots(
-  outdoor_data, indoor_data, "O3",
-  expression(paste(O[3], " (ppb)")),
-  list(h = 82, lty = 1, lwd = 2, col = "red")
-)
-O3_box_plots <- get_box_plots(
-  outdoor_data, indoor_data, "O3",
-  expression(paste(O[3], " (ppb)"))
-)
-```
-
-## Time series plot
-
-```{r timeseries_O3, echo = FALSE, fig.width=13,fig.height=6}
-generate_timeseries_plot(
-  "O3", expression(paste(O[3], " (ppb)")),
-  outdoor_data_hr_avg, indoor_data_hr_avg
-)
-```
-`r fig_cap(25, caption = "Timeseries plot of O~3~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
-
-## Calendar plots
-
-```{r O3 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "O3", year_int = 2025,
-month_int = 8, title_expression = "Outdoor O3 (ppb)", threshold_value = 62)
-```
-`r fig_cap(26, caption = "Calendar plot of outdoor O~3~ concentrations during August 2025.", display = "full")`
-
-```{r O3 calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "O3", year_int = 2025,
-month_int = 8, title_expression = "Indoor O3 (ppb)", threshold_value = 62)
-```
-`r fig_cap(27, caption = "Calendar plot of indoor O~3~ concentrations during August 2025.", display = "full")`
-
-## Hourly average plots
-
-```{r diurnal_O3_outdoors, fig.height=3, echo=FALSE}
-plot(O3_diurnals$outdoor_plot)
-```
-
-`r fig_cap(28, caption = "Hourly average plot of outdoor O~3~ concentrations during August 2025. The red horizontal line at 82 ppb (may not be shown on plot) represents the Metro Vancouver Air Quality Objectives threshold.", display = "full")`
-
-```{r diurnal_O3_indoors, fig.height=3, echo=FALSE}
-plot(O3_diurnals$indoor_plot)
-```
-
-`r fig_cap(29, caption = "Hourly average plot of indoor O~3~ concentrations during August 2025. The red horizontal line at 82 ppb (may not be shown on plot) represents the Metro Vancouver Air Quality Objectives threshold.", display = "full")`
-
-
-## Box plots
-```{r box_O3, fig.height=4, fig.width=4, echo=FALSE}
-O3_box_plots$outdoor_plot + O3_box_plots$indoor_plot
-```
-
-`r fig_cap(30, caption = "Box plots of outdoor (left) and indoor (right) O~3~ concentrations during August 2025.", display = "full")`
-
-# Carbon dioxoide (CO~2~)
-
-Carbon dioxide (CO~2~) is a pollutant that comes from the combustion of organic and inorganic material, as well as respiration from humans. Exposure to high levels of CO~2~ can increase the risk of mucous membrane and respiratory irritation (sore or dry throat, congested nose, sneezing, coughing, and eye irritation), impaired decision-making, and neurophysiological symptoms (headache, tiredness, fatigue, dizziness or difficulty concentrating). Health Canada recommends an individual’s exposure to CO~2~ does not exceed an average of 1000 ppm over a 24-hour period. 
-
-CO~2~ is not typically considered an air pollutant (there is no Metro Vancouver Air Quality Objective), but it is the primary constituent that contributes to climate change. It can also be a good marker of indoor ventilation.
-
-```{r CO2_setup, include=FALSE}
-CO2_low <- 0
-CO2_lim <- 1000
-
-CO2_diurnals <- get_diurnal_plots(
-  outdoor_data, indoor_data, "CO2",
-  expression(paste(CO[2], " (ppm)")), NULL
-)
-CO2_box_plots <- get_box_plots(
-  outdoor_data, indoor_data, "CO2",
-  expression(paste(CO[2], " (ppm)"))
-)
-```
-
-## Time series plot
-
-```{r timeseries_CO2, echo = FALSE, fig.width=13,fig.height=6}
-generate_timeseries_plot(
-  "CO2", expression(paste(CO[2], " (ppm)")),
-  outdoor_data_hr_avg, indoor_data_hr_avg
-)
-```
-`r fig_cap(31, caption = "Timeseries plot of indoor CO~2~ concentrations during August 2025. The data is time-averaged over 1 hour time intervals.", display = "full")`
-
-## Calendar plots
-
-```{r CO2 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "CO2", year_int = 2025,
-month_int = 8, title_expression = "Outdoor CO2 (ppm)", threshold_value = 1000)
-```
-`r fig_cap(32, caption = "Calendar plot of outdoor CO~2~ concentrations during August 2025.", display = "full")`
-
-```{r CO2 calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "CO2", year_int = 2025,
-month_int = 8, title_expression = "Indoor CO2 (ppm)", threshold_value = 1000)
-```
-`r fig_cap(33, caption = "Calendar plot of indoor CO~2~ concentrations during August 2025.", display = "full")`
-
-## Hourly average plots
-
-```{r diurnal_CO2_outdoor, fig.height=3, echo=FALSE}
-plot(CO2_diurnals$outdoor_plot)
-```
-
-`r fig_cap(34, caption = "Hourly average plot of outdoor CO~2~ concentrations during August 2025.", display = "full")`
-
-```{r diurnal_CO2_indoor, fig.height=3, echo=FALSE}
-plot(CO2_diurnals$indoor_plot)
-```
-
-`r fig_cap(35, caption = "Hourly average plot of indoor CO~2~ concentrations during August 2025.", display = "full")`
-
-
-## Box plots
-```{r box_CO2, fig.height=4, fig.width=4, echo=FALSE}
-CO2_box_plots$outdoor_plot + CO2_box_plots$indoor_plot
-```
-
-`r fig_cap(36, caption = "Box plots of outdoor (left) and indoor (right) CO~2~ concentrations during August 2025.", display = "full")`
 
 # Air Quality Health Index (AQHI)
 
@@ -760,13 +361,262 @@ summarized with calendar plots.
 ## Calendar plots
 
 ```{r Outdoor AQHI calendar plot , echo = FALSE, fig.width=5, fig.height=4, fig.align="center"}
-generate_AQHI_calendar_plot(outdoor_data_24hr_avg, dataset_col_name = "AQHI", year_int = 2025,
-month_int = 8, is_outdoor_data = TRUE)
+generate_AQHI_calendar_plot(outdoor_data_24hr_avg, dataset_col_name = "AQHI",
+year_int = year, month_int = month_int, is_outdoor_data = TRUE)
+
+invisible(figure_nums(name = "outdoor_aqhi", caption = sprintf("Calendar plot of outdoor AQHI at your facility during %s %s.", month_char, year)))
 ```
-`r fig_cap(37, caption = "Calendar plot of outdoor AQHI at your facility during August 2025.", display = "full")`
+`r figure_nums("outdoor_aqhi")`
 
 ```{r Indoor AQHI calendar plot , echo = FALSE, fig.width=5, fig.height=4, fig.align="center"}
-generate_AQHI_calendar_plot(indoor_data_24hr_avg, dataset_col_name = "AQHI", year_int = 2025,
-month_int = 8, is_outdoor_data = FALSE)
+generate_AQHI_calendar_plot(indoor_data_24hr_avg, dataset_col_name = "AQHI",
+year_int = year, month_int = month_int, is_outdoor_data = FALSE)
+
+invisible(figure_nums(name = "indoor_aqhi", caption = sprintf("Calendar plot of indoor AQHI at your facility during %s %s.", month_char, year)))
 ```
-`r fig_cap(38, caption = "Calendar plot of indoor AQHI at your facility during August 2025.", display = "full")`
+`r figure_nums("indoor_aqhi")`
+
+# Nitrogen Dioxide (NO~2~)
+
+## Context
+
+NO~x~ is the combination of nitrogen monoxide (NO) and nitrogen dioxide (NO~2~). Nitrogen monoxide (NO) is formed when nitrogen and oxygen in combustion air combine with one another at the high temperatures experienced in vehicle engines. NO further combines with oxygen to create nitrogen dioxide (NO~2~). In this report we summarize total NO~2~. The effects of NO~2~ exposure include increased inflammation of the airways, coughing and wheezing, reduced lung function, and the onset of asthma and impairment of lung development in children. Metro Vancouver has set air quality recommendations for NO~2~, stating that hourly average exposure to NO~2~ should not exceed 60 ppb, and that annual average exposure to NO~2~ should not exceed 17 ppb. However, because there is no known minimum threshold exposure to (NO~2~) that causes these adverse health impacts, we recommend limiting the exposure to as low as reasonably achievable. 
+
+```{r NOx_setup, include=FALSE}
+
+NO2_diurnals <- get_diurnal_plots(
+  outdoor_data, indoor_data,
+  "NO2", expression(paste(NO[2], " (ppb)")), NULL
+)
+```
+
+## Calendar plots
+
+```{r NO2 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "NO2", year_int = year,
+  month_int = month_int, title_expression = "Outdoor NO2 Data (ppb)", threshold_value = 42,
+  colours = c("green", "green", "yellow", "orange", "red")
+)
+invisible(figure_nums(name = "outdoor_NO2_calendar", caption = sprintf("Calendar plot of outdoor NO~2~ during %s %s.", month_char, year)))
+```
+`r figure_nums("outdoor_NO2_calendar")`
+
+```{r NO2 calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "NO2", year_int = year,
+  month_int = month_int, title_expression = "Indoor NO2 Data (ppb)", threshold_value = 42,
+  colours = c("green", "green", "yellow", "orange", "red")
+)
+invisible(figure_nums(name = "indoor_NO2_calendar", caption = sprintf("Calendar plot of indoor NO~2~ during %s %s.", month_char, year)))
+```
+`r figure_nums("indoor_NO2_calendar")`
+
+
+## Hourly average plots
+```{r diurnal_NO2_outdoor, fig.height=3, echo=FALSE}
+plot(NO2_diurnals$outdoor_plot)
+invisible(figure_nums(name = "outdoor_NO2_diurnal", caption = sprintf("Hourly average plot of outdoor NO~2~ during %s %s.", month_char, year)))
+```
+
+`r figure_nums("outdoor_NO2_diurnal")`
+
+```{r diurnal_NO2_indoor, fig.height=3, echo=FALSE}
+
+
+plot(NO2_diurnals$indoor_plot)
+invisible(figure_nums(name = "indoor_NO2_diurnal", caption = sprintf("Hourly average plot of indoor NO~2~ during %s %s.", month_char, year)))
+```
+
+`r figure_nums("indoor_NO2_diurnal")`
+
+
+# Particulate Matter (PM~2.5~)
+
+## Context
+
+PM~2.5~ is the mass fraction of particulate matter with diameters smaller than 2.5 micron. The sources of PM~2.5~ include fuel combustion from traffic and wildfires. Exposure to particulate matter can have effects on childhood health, including irritation of the eyes, nose, and throat, decreased respiratory function, the development of asthma in children. Metro Vancouver's Air Quality Objectives state that 24-hour average exposure to PM~2.5~ should not exceed 25 µg/m^3^, and that annual average exposure to PM~2.5~ should not exceed 8 µg/m^3^. However, we recommend that the exposure to (PM~2.5~) is reduced to as low as reasonably achievable, as there is no known minimum exposure threshold for individuals to experience health impacts.
+
+```{r PM_setup, include=FALSE}
+
+PM_diurnals <- get_diurnal_plots(
+  outdoor_data, indoor_data, "PM2_5",
+  expression(paste(PM[2.5], " (", µg / m^3, ")")), NULL
+)
+```
+
+## Calendar plots
+
+```{r PM2.5 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "PM2_5", year_int = year,
+  month_int = month_int, title_expression = expression(paste("Outdoor ", PM[2.5], " (", µg / m^3, ")")),
+  threshold_value = 25, colours = c("green", "green", "yellow", "red", "#600000")
+)
+
+invisible(figure_nums(name = "outdoor_PM_calendar", caption = sprintf("Calendar plot of outdoor PM~2.5~ during %s %s.", month_char, year)))
+```
+`r figure_nums("outdoor_PM_calendar")`
+
+```{r PM2.5 calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "PM2_5", year_int = year,
+  month_int = month_int, title_expression = expression(paste("Indoor ", PM[2.5], " (", µg / m^3, ")")),
+  threshold_value = 25, colours = c("green", "green", "yellow", "red", "#600000")
+)
+
+invisible(figure_nums(name = "indoor_PM_calendar", caption = sprintf("Calendar plot of indoor PM~2.5~ during %s %s.", month_char, year)))
+```
+`r figure_nums("indoor_PM_calendar")`
+
+
+## Hourly average Plots
+
+```{r diurnal_PM_outdoor, fig.height=3, echo=FALSE}
+plot(PM_diurnals$outdoor_plot)
+invisible(figure_nums(name = "outdoor_PM_diurnal", caption = sprintf("Hourly average plot of outdoor PM~2.5~ during %s %s.", month_char, year)))
+```
+
+`r figure_nums("outdoor_PM_diurnal")`
+
+```{r diurnal_PM_indoor, fig.height=3, echo=FALSE}
+plot(PM_diurnals$indoor_plot)
+invisible(figure_nums(name = "indoor_PM_diurnal", caption = sprintf("Hourly average plot of indoor PM~2.5~ during %s %s.", month_char, year)))
+```
+
+`r figure_nums("indoor_PM_diurnal")`
+
+
+# Carbon Monoxide (CO)
+
+## Context
+
+Carbon monoxide (CO) is a byproduct of incomplete combustion and is associated with the burning of fossil fuels and wildfire smoke events. Exposure to carbon monoxide reduces the body's ability to carry oxygen and can cause headaches, fatigue, dizziness, nausea, and confusion. Metro Vancouver's Air Quality Objectives state that hourly average concentration of CO should not exceed 13 ppm, and that 8-hour average concentration of CO should not exceed 5 ppm.
+
+```{r CO_setup, include=FALSE}
+CO_diurnals <- get_diurnal_plots(
+  outdoor_data, indoor_data, "CO",
+  "CO (ppm)", list(h = 13, lty = 1, lwd = 2, col = "red")
+)
+```
+
+## Calendar plots
+
+```{r CO calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "CO", year_int = year,
+  month_int = month_int, title_expression = "Outdoor CO (ppm)", threshold_value = 5,
+  colours = c("green", "green", "yellow", "red", "#600000")
+)
+
+invisible(figure_nums(name = "outdoor_CO_calendar", caption = sprintf("Calendar plot of outdoor CO during %s %s.", month_char, year)))
+```
+`r figure_nums("outdoor_CO_calendar")`
+
+```{r CO calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "CO", year_int = year,
+  month_int = month_int, title_expression = "Indoor CO (ppm)", threshold_value = 5,
+  colours = c("green", "green", "yellow", "red", "#600000")
+)
+
+invisible(figure_nums(name = "indoor_CO_calendar", caption = sprintf("Calendar plot of indoor CO during %s %s.", month_char, year)))
+```
+`r figure_nums("indoor_CO_calendar")`
+
+## Hourly average plots
+
+```{r diurnal_CO_outdoor, fig.height=3, echo=FALSE}
+plot(CO_diurnals$outdoor_plot)
+invisible(figure_nums(name = "outdoor_CO_diurnal", caption = sprintf("Hourly average plot of outdoor CO during %s %s.", month_char, year)))
+```
+
+`r figure_nums("outdoor_CO_diurnal")`
+
+```{r diurnal_CO_indoor, fig.height=3, echo=FALSE}
+plot(CO_diurnals$indoor_plot)
+invisible(figure_nums(name = "indoor_CO_diurnal", caption = sprintf("Hourly average plot of indoor CO during %s %s.", month_char, year)))
+```
+
+`r figure_nums("indoor_CO_diurnal")`
+
+
+# Ozone (O~3~)
+
+## Context
+
+Ground-level ozone (O~3~) is not a  direct traffic-related emission; however, it is formed from the reaction of nitrogen oxides (NO~x~) and volatile organic compounds (VOCs) (which are traffic-related air pollutants) in the presence of sunlight. Ozone is important in the stratosphere, as it keeps us safe from harmful ultraviolet rays (UV-A and UV-B). However exposure to ground-level ozone can cause shortness of breath or hyperventilation, coughing and/or sore or scratchy throat, inflamed and damaged airways, and aggravation of lung diseases such as asthma, emphysema, and chronic bronchitis. Ground-level ozone is a principal chemical component of smog (smoky fog). Metro Vancouver's Air Quality Objectives state that hourly average exposure to O~3~ should not exceed 82 ppb, and that 8-hour average exposure to O~3~ should not exceed 62 ppb.
+
+In indoor environments, where there is no sunlight, ozone concentrations are generally very low and are therefore not included in this report.
+
+```{r O3_setup, include=FALSE}
+O3_diurnals <- get_diurnal_plots(
+  outdoor_data, indoor_data, "O3",
+  expression(paste(O[3], " (ppb)")),
+  list(h = 82, lty = 1, lwd = 2, col = "red")
+)
+```
+
+## Calendar plot
+
+```{r O3 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "O3", year_int = year,
+  month_int = month_int, title_expression = "Outdoor O3 (ppb)", threshold_value = 62,
+  colours = c("green", "green", "yellow", "red", "#600000")
+)
+invisible(figure_nums(name = "outdoor_O3_calendar", caption = sprintf("Calendar plot of outdoor O3 during %s %s.", month_char, year)))
+```
+`r figure_nums("outdoor_O3_calendar")`
+
+## Hourly average plot
+
+```{r diurnal_O3_outdoors, fig.height=3, echo=FALSE}
+plot(O3_diurnals$outdoor_plot)
+invisible(figure_nums(name = "outdoor_O3_diurnal", caption = sprintf("Hourly average plot of outdoor O3 during %s %s.", month_char, year)))
+```
+
+`r figure_nums("outdoor_O3_diurnal")`
+
+
+# Carbon dioxoide (CO~2~)
+
+Carbon dioxide (CO~2~) comes from the combustion of organic and inorganic material, as well as respiration from humans. CO~2~ is not typically considered an air pollutant, but it is the primary constituent that contributes to climate change. It can also be a good marker of indoor ventilation. Exposure to high levels of CO~2~ can increase the risk of mucous membrane and respiratory irritation (sore or dry throat, congested nose, sneezing, coughing, and eye irritation), impaired decision-making, and neurophysiological symptoms (headache, tiredness, fatigue, dizziness or difficulty concentrating). Health Canada recommends an individual’s exposure to CO~2~ does not exceed an average of 1000 ppm over a 24-hour period. 
+
+```{r CO2_setup, include=FALSE}
+CO2_diurnals <- get_diurnal_plots(
+  outdoor_data, indoor_data, "CO2",
+  expression(paste(CO[2], " (ppm)")), NULL
+)
+```
+
+## Calendar plots
+
+```{r CO2 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "CO2", year_int = year,
+  month_int = month_int, title_expression = "Outdoor CO2 (ppm)",
+  threshold_value = 1000, colours = c("green", "green", "yellow", "red", "#600000")
+)
+invisible(figure_nums(name = "outdoor_CO2_calendar", caption = sprintf("Calendar plot of outdoor CO2~~ during %s %s.", month_char, year)))
+```
+`r figure_nums("outdoor_CO2_calendar")`
+
+
+```{r CO2 calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "CO2", year_int = year,
+  month_int = month_int, title_expression = "Indoor CO2 (ppm)",
+  threshold_value = 1000, colours = c("green", "green", "yellow", "red", "#600000")
+)
+invisible(figure_nums(name = "indoor_CO2_calendar", caption = sprintf("Calendar plot of indoor CO2~~ during %s %s.", month_char, year)))
+```
+`r figure_nums("outdoor_CO2_calendar")`
+
+## Hourly average plots
+
+```{r diurnal_CO2_outdoor, fig.height=3, echo=FALSE}
+plot(CO2_diurnals$outdoor_plot)
+invisible(figure_nums(name = "outdoor_CO2_diurnal", caption = sprintf("Hourly average plot of outdoor CO2~~ during %s %s.", month_char, year)))
+```
+
+`r figure_nums("outdoor_CO2_diurnal")`
+
+
+```{r diurnal_CO2_indoor, fig.height=3, echo=FALSE}
+plot(CO2_diurnals$indoor_plot)
+invisible(figure_nums(name = "indoor_CO2_diurnal", caption = sprintf("Hourly average plot of indoor CO2~~ during %s %s.", month_char, year)))
+```
+
+`r figure_nums("indoor_CO2_diurnal")`
