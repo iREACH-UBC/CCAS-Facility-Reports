@@ -73,8 +73,9 @@ for (i in seq_along(data_list)) {
     data_list[[i]]$date,
     paste0(data_list[[i]]$date, " 00:00") # add midnight if missing
   )
-
-  data_list[[i]]$date <- as.POSIXct(data_list[[i]]$date, format = "%m/%d/%Y %H:%M", tz = "Etc/GMT-8")
+  data_list[[i]]$date <- as.POSIXct(
+    data_list[[i]]$date, format = "%m/%d/%Y %H:%M", tz = "Etc/GMT-8"
+  )
 
   # Rename columns
   names(data_list[[i]])[names(data_list[[i]]) == "NO2..ppb."] <- "NO2"
@@ -166,8 +167,7 @@ generate_timeseries_plot <- function(
   )
 }
 
-
-generate_pollutant_calendar_plot <- function(
+make_pollutant_calendar_plot <- function(
   dataset, dataset_col_name, year_int, month_int,
   title_expression, threshold_value, colours
 ) {
@@ -179,7 +179,7 @@ generate_pollutant_calendar_plot <- function(
   )
 }
 
-generate_AQHI_calendar_plot <- function(
+make_aqhi_calendar_plot <- function(
   dataset, dataset_col_name, year_int, month_int,
   is_outdoor_data
 ) {
@@ -234,6 +234,33 @@ get_diurnal_plots <- function(
 }
 
 
+smooth_colour_bins <- function(
+  colours, breaks, grad_range
+) {
+  if (length(breaks) != (length(colours) + 1)) {
+    stop("Colour sequences and breaks do not align.")
+  }
+  colour_list <- rep(
+    colours[1], ceiling(breaks[2] - breaks[1] - ceiling(grad_range / 2))
+  )
+
+  for (i in seq(from = 2, to = (length(breaks) - 1))) {
+    gradient <- colorRampPalette(c(colours[i - 1], colours[i]))
+    gradient_colours <- gradient(grad_range) # Takes ceiling
+
+    next_start <- ceiling(breaks[i]+ (grad_range/2))
+    next_stop_mid <- ceiling(breaks[i+1] - (grad_range/2))
+
+    if (i < (length(breaks) - 1)) {
+      next_colour <- rep(colours[i], ceiling(next_stop_mid - next_start))
+    } else {
+      next_colour <- rep(colours[i], 0) #size 0 for last colour
+    }
+    colour_list <- c(colour_list, gradient_colours, next_colour)
+  }
+  return(colour_list)
+}
+
 # For both indoor and outdoor datasets
 get_box_plots <- function(
     outdoor_dataset, indoor_dataset, pollutant_name,
@@ -258,7 +285,7 @@ get_box_plots <- function(
   return(list("outdoor_plot" = box_outdoor, "indoor_plot" = box_indoor))
 }
 
-make_CAAQS_legend <- function(legend_title,
+make_caaqs_legend <- function(legend_title,
   grn_val, ylw_val1, ylw_val2, org_val1,
   org_val2, red_val) {
   op <- par(no.readonly = TRUE)
@@ -361,7 +388,7 @@ summarized with calendar plots.
 ## Calendar plots
 
 ```{r Outdoor AQHI calendar plot , echo = FALSE, fig.width=5, fig.height=4, fig.align="center"}
-generate_AQHI_calendar_plot(outdoor_data_24hr_avg, dataset_col_name = "AQHI",
+make_aqhi_calendar_plot(outdoor_data_24hr_avg, dataset_col_name = "AQHI",
 year_int = year, month_int = month_int, is_outdoor_data = TRUE)
 
 invisible(figure_nums(name = "outdoor_aqhi", caption = sprintf("Calendar plot of outdoor AQHI at your facility during %s %s.", month_char, year)))
@@ -369,7 +396,7 @@ invisible(figure_nums(name = "outdoor_aqhi", caption = sprintf("Calendar plot of
 `r figure_nums("outdoor_aqhi")`
 
 ```{r Indoor AQHI calendar plot , echo = FALSE, fig.width=5, fig.height=4, fig.align="center"}
-generate_AQHI_calendar_plot(indoor_data_24hr_avg, dataset_col_name = "AQHI",
+make_aqhi_calendar_plot(indoor_data_24hr_avg, dataset_col_name = "AQHI",
 year_int = year, month_int = month_int, is_outdoor_data = FALSE)
 
 invisible(figure_nums(name = "indoor_aqhi", caption = sprintf("Calendar plot of indoor AQHI at your facility during %s %s.", month_char, year)))
@@ -382,48 +409,68 @@ invisible(figure_nums(name = "indoor_aqhi", caption = sprintf("Calendar plot of 
 
 NO~x~ is the combination of nitrogen monoxide (NO) and nitrogen dioxide (NO~2~). Nitrogen monoxide (NO) is formed when nitrogen and oxygen in combustion air combine with one another at the high temperatures experienced in vehicle engines. NO further combines with oxygen to create nitrogen dioxide (NO~2~). In this report we summarize total NO~2~. The effects of NO~2~ exposure include increased inflammation of the airways, coughing and wheezing, reduced lung function, and the onset of asthma and impairment of lung development in children. Metro Vancouver has set air quality recommendations for NO~2~, stating that hourly average exposure to NO~2~ should not exceed 60 ppb, and that annual average exposure to NO~2~ should not exceed 17 ppb. However, because there is no known minimum threshold exposure to (NO~2~) that causes these adverse health impacts, we recommend limiting the exposure to as low as reasonably achievable. 
 
-```{r NOx_setup, include=FALSE}
-
-NO2_diurnals <- get_diurnal_plots(
+```{r NO2_setup, include=FALSE}
+no2_diurnals <- get_diurnal_plots(
   outdoor_data, indoor_data,
   "NO2", expression(paste(NO[2], " (ppb)")), NULL
+)
+no2_colours <- c("#4C9F49", "yellow", "orange", "red")
+no2_breaks <- c(0, 20.5, 31.5, 42, Inf)
+no2_smoothed_colours <- smooth_colour_bins(
+  colours = no2_colours, breaks = no2_breaks, grad_range = 3
 )
 ```
 
 ## Calendar plots
 
 ```{r NO2 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "NO2", year_int = year,
-  month_int = month_int, title_expression = "Outdoor NO2 Data (ppb)", threshold_value = 42,
-  colours = c("green", "green", "yellow", "orange", "red")
+make_pollutant_calendar_plot(
+  dataset = outdoor_data,
+  dataset_col_name = "NO2",
+  year_int = year,
+  month_int = month_int,
+  title_expression = "Outdoor NO2 Data (ppb)",
+  threshold_value = 42,
+  colours = no2_smoothed_colours
 )
-invisible(figure_nums(name = "outdoor_NO2_calendar", caption = sprintf("Calendar plot of outdoor NO~2~ during %s %s.", month_char, year)))
+invisible(figure_nums(name = "outdoor_NO2_calendar", caption = sprintf(
+  "Calendar plot of outdoor NO~2~ during %s %s.", month_char, year
+)))
 ```
 `r figure_nums("outdoor_NO2_calendar")`
 
 ```{r NO2 calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "NO2", year_int = year,
-  month_int = month_int, title_expression = "Indoor NO2 Data (ppb)", threshold_value = 42,
-  colours = c("green", "green", "yellow", "orange", "red")
+make_pollutant_calendar_plot(
+  dataset = indoor_data,
+  dataset_col_name = "NO2",
+  year_int = year,
+  month_int = month_int,
+  title_expression = "Indoor NO2 Data (ppb)",
+  threshold_value = 42,
+  colours = no2_smoothed_colours
 )
-invisible(figure_nums(name = "indoor_NO2_calendar", caption = sprintf("Calendar plot of indoor NO~2~ during %s %s.", month_char, year)))
+invisible(figure_nums(name = "indoor_NO2_calendar", caption = sprintf(
+  "Calendar plot of indoor NO~2~ during %s %s.", month_char, year
+)))
 ```
 `r figure_nums("indoor_NO2_calendar")`
 
 
 ## Hourly average plots
 ```{r diurnal_NO2_outdoor, fig.height=3, echo=FALSE}
-plot(NO2_diurnals$outdoor_plot)
-invisible(figure_nums(name = "outdoor_NO2_diurnal", caption = sprintf("Hourly average plot of outdoor NO~2~ during %s %s.", month_char, year)))
+plot(no2_diurnals$outdoor_plot)
+invisible(figure_nums(name = "outdoor_NO2_diurnal", caption = sprintf(
+  "Hourly average plot of outdoor NO~2~ during %s %s.", month_char, year
+)))
 ```
 
 `r figure_nums("outdoor_NO2_diurnal")`
 
 ```{r diurnal_NO2_indoor, fig.height=3, echo=FALSE}
-
-
-plot(NO2_diurnals$indoor_plot)
-invisible(figure_nums(name = "indoor_NO2_diurnal", caption = sprintf("Hourly average plot of indoor NO~2~ during %s %s.", month_char, year)))
+plot(no2_diurnals$indoor_plot)
+invisible(figure_nums(name = "indoor_NO2_diurnal", caption = sprintf(
+  "Hourly average plot of indoor NO~2~ during %s %s.", month_char, year
+)))
 ```
 
 `r figure_nums("indoor_NO2_diurnal")`
@@ -436,32 +483,50 @@ invisible(figure_nums(name = "indoor_NO2_diurnal", caption = sprintf("Hourly ave
 PM~2.5~ is the mass fraction of particulate matter with diameters smaller than 2.5 micron. The sources of PM~2.5~ include fuel combustion from traffic and wildfires. Exposure to particulate matter can have effects on childhood health, including irritation of the eyes, nose, and throat, decreased respiratory function, the development of asthma in children. Metro Vancouver's Air Quality Objectives state that 24-hour average exposure to PM~2.5~ should not exceed 25 µg/m^3^, and that annual average exposure to PM~2.5~ should not exceed 8 µg/m^3^. However, we recommend that the exposure to (PM~2.5~) is reduced to as low as reasonably achievable, as there is no known minimum exposure threshold for individuals to experience health impacts.
 
 ```{r PM_setup, include=FALSE}
-
-PM_diurnals <- get_diurnal_plots(
+pm_2_5_diurnals <- get_diurnal_plots(
   outdoor_data, indoor_data, "PM2_5",
   expression(paste(PM[2.5], " (", µg / m^3, ")")), NULL
+)
+pm2_5_colours <- c("#4C9F49", "yellow", "orange", "red")
+pm2_5_breaks <- c(0, 10.5, 18, 25, Inf)
+pm2_5_smoothed_colours <- smooth_colour_bins(
+  colours = pm2_5_colours, breaks = pm2_5_breaks, grad_range = 3
 )
 ```
 
 ## Calendar plots
 
 ```{r PM2.5 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "PM2_5", year_int = year,
-  month_int = month_int, title_expression = expression(paste("Outdoor ", PM[2.5], " (", µg / m^3, ")")),
-  threshold_value = 25, colours = c("green", "green", "yellow", "red", "#600000")
+make_pollutant_calendar_plot(
+  dataset = outdoor_data,
+  dataset_col_name = "PM2_5",
+  year_int = year,
+  month_int = month_int,
+  title_expression = expression(paste(
+    "Outdoor ", PM[2.5], " (", µg / m^3, ")"
+  )),
+  threshold_value = 25,
+  colours = pm2_5_smoothed_colours
 )
-
-invisible(figure_nums(name = "outdoor_PM_calendar", caption = sprintf("Calendar plot of outdoor PM~2.5~ during %s %s.", month_char, year)))
+invisible(figure_nums(name = "outdoor_PM_calendar", caption = sprintf(
+  "Calendar plot of outdoor PM~2.5~ during %s %s.", month_char, year
+)))
 ```
 `r figure_nums("outdoor_PM_calendar")`
 
 ```{r PM2.5 calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "PM2_5", year_int = year,
-  month_int = month_int, title_expression = expression(paste("Indoor ", PM[2.5], " (", µg / m^3, ")")),
-  threshold_value = 25, colours = c("green", "green", "yellow", "red", "#600000")
+make_pollutant_calendar_plot(
+  dataset = indoor_data,
+  dataset_col_name = "PM2_5",
+  year_int = year,
+  month_int = month_int,
+  title_expression = expression(paste("Indoor ", PM[2.5], " (", µg / m^3, ")")),
+  threshold_value = 25,
+  colours = pm2_5_smoothed_colours
 )
-
-invisible(figure_nums(name = "indoor_PM_calendar", caption = sprintf("Calendar plot of indoor PM~2.5~ during %s %s.", month_char, year)))
+invisible(figure_nums(name = "indoor_PM_calendar", caption = sprintf(
+  "Calendar plot of indoor PM~2.5~ during %s %s.", month_char, year
+)))
 ```
 `r figure_nums("indoor_PM_calendar")`
 
@@ -469,15 +534,19 @@ invisible(figure_nums(name = "indoor_PM_calendar", caption = sprintf("Calendar p
 ## Hourly average Plots
 
 ```{r diurnal_PM_outdoor, fig.height=3, echo=FALSE}
-plot(PM_diurnals$outdoor_plot)
-invisible(figure_nums(name = "outdoor_PM_diurnal", caption = sprintf("Hourly average plot of outdoor PM~2.5~ during %s %s.", month_char, year)))
+plot(pm_2_5_diurnals$outdoor_plot)
+invisible(figure_nums(name = "outdoor_PM_diurnal", caption = sprintf(
+  "Hourly average plot of outdoor PM~2.5~ during %s %s.", month_char, year
+)))
 ```
 
 `r figure_nums("outdoor_PM_diurnal")`
 
 ```{r diurnal_PM_indoor, fig.height=3, echo=FALSE}
-plot(PM_diurnals$indoor_plot)
-invisible(figure_nums(name = "indoor_PM_diurnal", caption = sprintf("Hourly average plot of indoor PM~2.5~ during %s %s.", month_char, year)))
+plot(pm_2_5_diurnals$indoor_plot)
+invisible(figure_nums(name = "indoor_PM_diurnal", caption = sprintf(
+  "Hourly average plot of indoor PM~2.5~ during %s %s.", month_char, year
+)))
 ```
 
 `r figure_nums("indoor_PM_diurnal")`
@@ -490,46 +559,65 @@ invisible(figure_nums(name = "indoor_PM_diurnal", caption = sprintf("Hourly aver
 Carbon monoxide (CO) is a byproduct of incomplete combustion and is associated with the burning of fossil fuels and wildfire smoke events. Exposure to carbon monoxide reduces the body's ability to carry oxygen and can cause headaches, fatigue, dizziness, nausea, and confusion. Metro Vancouver's Air Quality Objectives state that hourly average concentration of CO should not exceed 13 ppm, and that 8-hour average concentration of CO should not exceed 5 ppm.
 
 ```{r CO_setup, include=FALSE}
-CO_diurnals <- get_diurnal_plots(
+co_diurnals <- get_diurnal_plots(
   outdoor_data, indoor_data, "CO",
   "CO (ppm)", list(h = 13, lty = 1, lwd = 2, col = "red")
 )
+num_colours <- 100
+co_colours <- colorRampPalette(c("#4C9F49", "yellow", "orange", "red"), bias = 0.3)(num_colours)
+# co_colours <- c("#4C9F49", "#4C9F49", "#4C9F49", "yellow", "yellow", "red")
 ```
 
 ## Calendar plots
 
 ```{r CO calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "CO", year_int = year,
-  month_int = month_int, title_expression = "Outdoor CO (ppm)", threshold_value = 5,
-  colours = c("green", "green", "yellow", "red", "#600000")
+make_pollutant_calendar_plot(
+  dataset = outdoor_data,
+  dataset_col_name = "CO",
+  year_int = year,
+  month_int = month_int,
+  title_expression = "Outdoor CO (ppm)",
+  threshold_value = 5,
+  colours = co_colours
 )
-
-invisible(figure_nums(name = "outdoor_CO_calendar", caption = sprintf("Calendar plot of outdoor CO during %s %s.", month_char, year)))
+invisible(figure_nums(name = "outdoor_CO_calendar", caption = sprintf(
+  "Calendar plot of outdoor CO during %s %s.", month_char, year
+)))
 ```
 `r figure_nums("outdoor_CO_calendar")`
 
 ```{r CO calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "CO", year_int = year,
-  month_int = month_int, title_expression = "Indoor CO (ppm)", threshold_value = 5,
-  colours = c("green", "green", "yellow", "red", "#600000")
+make_pollutant_calendar_plot(
+  dataset = indoor_data,
+  dataset_col_name = "CO",
+  year_int = year,
+  month_int = month_int,
+  title_expression = "Indoor CO (ppm)",
+  threshold_value = 5,
+  colours = co_colours
 )
-
-invisible(figure_nums(name = "indoor_CO_calendar", caption = sprintf("Calendar plot of indoor CO during %s %s.", month_char, year)))
+invisible(figure_nums(name = "indoor_CO_calendar", caption = sprintf(
+  "Calendar plot of indoor CO during %s %s.", month_char, year
+)))
 ```
 `r figure_nums("indoor_CO_calendar")`
 
 ## Hourly average plots
 
 ```{r diurnal_CO_outdoor, fig.height=3, echo=FALSE}
-plot(CO_diurnals$outdoor_plot)
-invisible(figure_nums(name = "outdoor_CO_diurnal", caption = sprintf("Hourly average plot of outdoor CO during %s %s.", month_char, year)))
+plot(co_diurnals$outdoor_plot)
+invisible(figure_nums(name = "outdoor_CO_diurnal", caption = sprintf(
+  "Hourly average plot of outdoor CO during %s %s.", month_char, year
+)))
 ```
 
 `r figure_nums("outdoor_CO_diurnal")`
 
 ```{r diurnal_CO_indoor, fig.height=3, echo=FALSE}
-plot(CO_diurnals$indoor_plot)
-invisible(figure_nums(name = "indoor_CO_diurnal", caption = sprintf("Hourly average plot of indoor CO during %s %s.", month_char, year)))
+plot(co_diurnals$indoor_plot)
+invisible(figure_nums(name = "indoor_CO_diurnal", caption = sprintf(
+  "Hourly average plot of indoor CO during %s %s.", month_char, year
+)))
 ```
 
 `r figure_nums("indoor_CO_diurnal")`
@@ -544,29 +632,43 @@ Ground-level ozone (O~3~) is not a  direct traffic-related emission; however, it
 In indoor environments, where there is no sunlight, ozone concentrations are generally very low and are therefore not included in this report.
 
 ```{r O3_setup, include=FALSE}
-O3_diurnals <- get_diurnal_plots(
+o3_diurnals <- get_diurnal_plots(
   outdoor_data, indoor_data, "O3",
   expression(paste(O[3], " (ppb)")),
   list(h = 82, lty = 1, lwd = 2, col = "red")
+)
+o3_colours <- c("#4C9F49", "yellow", "orange", "red")
+o3_breaks <- c(0, 50.5, 56.5, 60, Inf)
+o3_smoothed_colours <- smooth_colour_bins(
+  colours = o3_colours, breaks = o3_breaks, grad_range = 3
 )
 ```
 
 ## Calendar plot
 
 ```{r O3 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "O3", year_int = year,
-  month_int = month_int, title_expression = "Outdoor O3 (ppb)", threshold_value = 62,
-  colours = c("green", "green", "yellow", "red", "#600000")
+make_pollutant_calendar_plot(
+  dataset = outdoor_data,
+  dataset_col_name = "O3",
+  year_int = year,
+  month_int = month_int,
+  title_expression = "Outdoor O3 (ppb)",
+  threshold_value = 60,
+  colours = o3_smoothed_colours
 )
-invisible(figure_nums(name = "outdoor_O3_calendar", caption = sprintf("Calendar plot of outdoor O3 during %s %s.", month_char, year)))
+invisible(figure_nums(name = "outdoor_O3_calendar", caption = sprintf(
+  "Calendar plot of outdoor O3 during %s %s.", month_char, year
+)))
 ```
 `r figure_nums("outdoor_O3_calendar")`
 
 ## Hourly average plot
 
 ```{r diurnal_O3_outdoors, fig.height=3, echo=FALSE}
-plot(O3_diurnals$outdoor_plot)
-invisible(figure_nums(name = "outdoor_O3_diurnal", caption = sprintf("Hourly average plot of outdoor O3 during %s %s.", month_char, year)))
+plot(o3_diurnals$outdoor_plot)
+invisible(figure_nums(name = "outdoor_O3_diurnal", caption = sprintf(
+  "Hourly average plot of outdoor O3 during %s %s.", month_char, year
+)))
 ```
 
 `r figure_nums("outdoor_O3_diurnal")`
@@ -577,46 +679,68 @@ invisible(figure_nums(name = "outdoor_O3_diurnal", caption = sprintf("Hourly ave
 Carbon dioxide (CO~2~) comes from the combustion of organic and inorganic material, as well as respiration from humans. CO~2~ is not typically considered an air pollutant, but it is the primary constituent that contributes to climate change. It can also be a good marker of indoor ventilation. Exposure to high levels of CO~2~ can increase the risk of mucous membrane and respiratory irritation (sore or dry throat, congested nose, sneezing, coughing, and eye irritation), impaired decision-making, and neurophysiological symptoms (headache, tiredness, fatigue, dizziness or difficulty concentrating). Health Canada recommends an individual’s exposure to CO~2~ does not exceed an average of 1000 ppm over a 24-hour period. 
 
 ```{r CO2_setup, include=FALSE}
-CO2_diurnals <- get_diurnal_plots(
+co2_diurnals <- get_diurnal_plots(
   outdoor_data, indoor_data, "CO2",
   expression(paste(CO[2], " (ppm)")), NULL
 )
+num_colours <- 100
+co2_colours <- colorRampPalette(
+  c("#4C9F49", "yellow", "orange", "red"), bias = 0.3
+)(num_colours)
 ```
 
 ## Calendar plots
 
 ```{r CO2 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(outdoor_data, dataset_col_name = "CO2", year_int = year,
-  month_int = month_int, title_expression = "Outdoor CO2 (ppm)",
-  threshold_value = 1000, colours = c("green", "green", "yellow", "red", "#600000")
+make_pollutant_calendar_plot(
+  dataset = outdoor_data,
+  dataset_col_name = "CO2",
+  year_int = year,
+  month_int = month_int,
+  title_expression = "Outdoor CO2 (ppb)",
+  threshold_value = 1000,
+  colours = co2_colours
 )
-invisible(figure_nums(name = "outdoor_CO2_calendar", caption = sprintf("Calendar plot of outdoor CO2~~ during %s %s.", month_char, year)))
+invisible(figure_nums(name = "outdoor_CO2_calendar", caption = sprintf(
+  "Calendar plot of outdoor CO2~~ during %s %s.", month_char, year
+)))
 ```
 `r figure_nums("outdoor_CO2_calendar")`
 
 
 ```{r CO2 calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
-generate_pollutant_calendar_plot(indoor_data, dataset_col_name = "CO2", year_int = year,
-  month_int = month_int, title_expression = "Indoor CO2 (ppm)",
-  threshold_value = 1000, colours = c("green", "green", "yellow", "red", "#600000")
+make_pollutant_calendar_plot(
+  dataset = indoor_data,
+  dataset_col_name = "CO2",
+  year_int = year,
+  month_int = month_int,
+  title_expression = "Indoor CO2 (ppb)",
+  threshold_value = 1000,
+  colours = co2_colours
 )
-invisible(figure_nums(name = "indoor_CO2_calendar", caption = sprintf("Calendar plot of indoor CO2~~ during %s %s.", month_char, year)))
+invisible(figure_nums(name = "indoor_CO2_calendar", caption = sprintf(
+  "Calendar plot of indoor CO2~~ during %s %s.", month_char, year
+)))
 ```
 `r figure_nums("outdoor_CO2_calendar")`
 
 ## Hourly average plots
 
 ```{r diurnal_CO2_outdoor, fig.height=3, echo=FALSE}
-plot(CO2_diurnals$outdoor_plot)
-invisible(figure_nums(name = "outdoor_CO2_diurnal", caption = sprintf("Hourly average plot of outdoor CO2~~ during %s %s.", month_char, year)))
+plot(co2_diurnals$outdoor_plot)
+invisible(figure_nums(name = "outdoor_CO2_diurnal", caption = sprintf(
+  "Hourly average plot of outdoor CO2~~ during %s %s.", month_char, year
+)))
 ```
 
 `r figure_nums("outdoor_CO2_diurnal")`
 
 
 ```{r diurnal_CO2_indoor, fig.height=3, echo=FALSE}
-plot(CO2_diurnals$indoor_plot)
-invisible(figure_nums(name = "indoor_CO2_diurnal", caption = sprintf("Hourly average plot of indoor CO2~~ during %s %s.", month_char, year)))
+plot(co2_diurnals$indoor_plot)
+invisible(figure_nums(name = "indoor_CO2_diurnal", caption = sprintf(
+  "Hourly average plot of indoor CO2~~ during %s %s.", month_char, year
+)))
 ```
 
 `r figure_nums("indoor_CO2_diurnal")`
