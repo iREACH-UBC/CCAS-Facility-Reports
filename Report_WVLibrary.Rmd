@@ -268,10 +268,10 @@ get_pollutant_table <- function(
 ) {
   quantile75_outdoor <- quantile(
     outdoor_dataset[[pollutant_name]], na.rm = TRUE
-  )["75%"]
+  )[["75%"]]
   quantile75_indoor <- quantile(
     indoor_dataset[[pollutant_name]], na.rm = TRUE
-  )["75%"]
+  )[["75%"]]
 
   # Create a table manually
   pollutant_metrics <- data.frame(
@@ -426,21 +426,16 @@ summarized with calendar plots.
 
 ## Calendar plots
 
-```{r Outdoor AQHI calendar plot , echo = FALSE, fig.width=5, fig.height=4, fig.align="center"}
+```{r Outdoor AQHI calendar plot , echo = FALSE, fig.show="hold", out.width="50%"}
 make_aqhi_calendar_plot(outdoor_data_24hr_avg, dataset_col_name = "AQHI",
 year_int = year, month_int = month_int, is_outdoor_data = TRUE)
-
-invisible(figure_nums(name = "outdoor_aqhi", caption = sprintf("Calendar plot of outdoor AQHI at your facility during %s %s.", month_char, year)))
-```
-`r figure_nums("outdoor_aqhi")`
-
-```{r Indoor AQHI calendar plot , echo = FALSE, fig.width=5, fig.height=4, fig.align="center"}
 make_aqhi_calendar_plot(indoor_data_24hr_avg, dataset_col_name = "AQHI",
 year_int = year, month_int = month_int, is_outdoor_data = FALSE)
 
-invisible(figure_nums(name = "indoor_aqhi", caption = sprintf("Calendar plot of indoor AQHI at your facility during %s %s.", month_char, year)))
+invisible(figure_nums(name = "aqhi", caption = sprintf("Calendar plot of outdoor (left) and indoor (right) AQHI at your facility during %s %s.", month_char, year)))
 ```
-`r figure_nums("indoor_aqhi")`
+`r figure_nums("aqhi")`
+
 
 # Nitrogen Dioxide (NO~2~)
 
@@ -475,7 +470,7 @@ invisible(table_nums(name = "no2_table", caption = sprintf(
 
 ## Calendar plots
 
-```{r NO2 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+```{r NO2 calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%"}
 make_pollutant_calendar_plot(
   dataset = outdoor_data,
   dataset_col_name = "NO2",
@@ -485,13 +480,6 @@ make_pollutant_calendar_plot(
   threshold_value = 42,
   colours = no2_smoothed_colours
 )
-invisible(figure_nums(name = "outdoor_NO2_calendar", caption = sprintf(
-  "Calendar plot of outdoor NO~2~ during %s %s.", month_char, year
-)))
-```
-`r figure_nums("outdoor_NO2_calendar")`
-
-```{r NO2 calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
 make_pollutant_calendar_plot(
   dataset = indoor_data,
   dataset_col_name = "NO2",
@@ -501,11 +489,12 @@ make_pollutant_calendar_plot(
   threshold_value = 42,
   colours = no2_smoothed_colours
 )
-invisible(figure_nums(name = "indoor_NO2_calendar", caption = sprintf(
-  "Calendar plot of indoor NO~2~ during %s %s.", month_char, year
+
+invisible(figure_nums(name = "NO2_calendar", caption = sprintf(
+  "Calendar plots of outdoor (left) and indoor (right) NO~2~ during %s %s.", month_char, year
 )))
 ```
-`r figure_nums("indoor_NO2_calendar")`
+`r figure_nums("NO2_calendar")`
 
 
 ## Hourly average plots
@@ -561,7 +550,7 @@ invisible(table_nums(name = "PM2_5_table", caption = sprintf(
 
 ## Calendar plots
 
-```{r PM2.5 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+```{r PM2.5 calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%"}
 make_pollutant_calendar_plot(
   dataset = outdoor_data,
   dataset_col_name = "PM2_5",
@@ -573,13 +562,6 @@ make_pollutant_calendar_plot(
   threshold_value = 25,
   colours = pm2_5_smoothed_colours
 )
-invisible(figure_nums(name = "outdoor_PM_calendar", caption = sprintf(
-  "Calendar plot of outdoor PM~2.5~ during %s %s.", month_char, year
-)))
-```
-`r figure_nums("outdoor_PM_calendar")`
-
-```{r PM2.5 calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
 make_pollutant_calendar_plot(
   dataset = indoor_data,
   dataset_col_name = "PM2_5",
@@ -589,11 +571,12 @@ make_pollutant_calendar_plot(
   threshold_value = 25,
   colours = pm2_5_smoothed_colours
 )
-invisible(figure_nums(name = "indoor_PM_calendar", caption = sprintf(
-  "Calendar plot of indoor PM~2.5~ during %s %s.", month_char, year
+
+invisible(figure_nums(name = "PM_calendar", caption = sprintf(
+  "Calendar plots of outdoor (left) and indoor (right) PM~2.5~ during %s %s.", month_char, year
 )))
 ```
-`r figure_nums("indoor_PM_calendar")`
+`r figure_nums("PM_calendar")`
 
 
 ## Hourly average plots
@@ -647,7 +630,7 @@ invisible(table_nums(name = "co_table", caption = sprintf(
 
 ## Calendar plots
 
-```{r CO calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+```{r CO calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%"}
 make_pollutant_calendar_plot(
   dataset = outdoor_data,
   dataset_col_name = "CO",
@@ -657,13 +640,6 @@ make_pollutant_calendar_plot(
   threshold_value = 5,
   colours = co_colours
 )
-invisible(figure_nums(name = "outdoor_CO_calendar", caption = sprintf(
-  "Calendar plot of outdoor CO during %s %s.", month_char, year
-)))
-```
-`r figure_nums("outdoor_CO_calendar")`
-
-```{r CO calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
 make_pollutant_calendar_plot(
   dataset = indoor_data,
   dataset_col_name = "CO",
@@ -673,11 +649,14 @@ make_pollutant_calendar_plot(
   threshold_value = 5,
   colours = co_colours
 )
-invisible(figure_nums(name = "indoor_CO_calendar", caption = sprintf(
-  "Calendar plot of indoor CO during %s %s.", month_char, year
+
+invisible(figure_nums(name = "CO_calendar", caption = sprintf(
+  "Calendar plot of outdoor (left) and indoor (right) CO during %s %s.",
+  month_char, year
 )))
 ```
-`r figure_nums("indoor_CO_calendar")`
+`r figure_nums("CO_calendar")`
+
 
 ## Hourly average plots
 
@@ -736,7 +715,7 @@ invisible(table_nums(name = "o3_table", caption = sprintf(
 
 ## Calendar plot
 
-```{r O3 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+```{r O3 calendar plot outdoors, echo = FALSE, out.width="50%", fig.align = "center"}
 make_pollutant_calendar_plot(
   dataset = outdoor_data,
   dataset_col_name = "O3",
@@ -796,7 +775,7 @@ invisible(table_nums(name = "co2_table", caption = sprintf(
 
 ## Calendar plots
 
-```{r CO2 calendar plot outdoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
+```{r CO2 calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%"}
 make_pollutant_calendar_plot(
   dataset = outdoor_data,
   dataset_col_name = "CO2",
@@ -806,14 +785,6 @@ make_pollutant_calendar_plot(
   threshold_value = 1000,
   colours = co2_colours
 )
-invisible(figure_nums(name = "outdoor_CO2_calendar", caption = sprintf(
-  "Calendar plot of outdoor CO~2~ during %s %s.", month_char, year
-)))
-```
-`r figure_nums("outdoor_CO2_calendar")`
-
-
-```{r CO2 calendar plot indoors, echo = FALSE, fig.width=5, fig.height=4, fig.align = "center"}
 make_pollutant_calendar_plot(
   dataset = indoor_data,
   dataset_col_name = "CO2",
@@ -823,11 +794,14 @@ make_pollutant_calendar_plot(
   threshold_value = 1000,
   colours = co2_colours
 )
-invisible(figure_nums(name = "indoor_CO2_calendar", caption = sprintf(
-  "Calendar plot of indoor CO~2~ during %s %s.", month_char, year
+
+invisible(figure_nums(name = "CO2_calendar", caption = sprintf(
+  "Calendar plot of outdoor (left) and indoor (right) CO~2~ during %s %s.",
+  month_char, year
 )))
 ```
-`r figure_nums("indoor_CO2_calendar")`
+`r figure_nums("CO2_calendar")`
+
 
 ## Hourly average plots
 
