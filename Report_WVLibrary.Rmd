@@ -75,7 +75,8 @@ for (i in seq_along(data_list)) {
     paste0(data_list[[i]]$date, " 00:00") # add midnight if missing
   )
   data_list[[i]]$date <- as.POSIXct(
-    data_list[[i]]$date, format = "%m/%d/%Y %H:%M", tz = "Etc/GMT-8"
+    data_list[[i]]$date,
+    format = "%m/%d/%Y %H:%M", tz = "Etc/GMT-8"
   )
 
   # Rename columns
@@ -169,40 +170,42 @@ generate_timeseries_plot <- function(
 }
 
 make_pollutant_calendar_plot <- function(
-  dataset, dataset_col_name, year_int, month_int,
-  title_expression, threshold_value, colours
-) {
+    dataset, dataset_col_name, year_int, month_int,
+    title_expression, threshold_value, colours) {
   calendarPlot(
-    dataset, pollutant=dataset_col_name, year=year_int,
-    month=month_int, limits = c(0, threshold_value),
+    dataset,
+    pollutant = dataset_col_name, year = year_int,
+    month = month_int, limits = c(0, threshold_value),
     cols = colours,
     main = title_expression
   )
 }
 
 make_aqhi_calendar_plot <- function(
-  dataset, dataset_col_name, year_int, month_int,
-  is_outdoor_data
-) {
+    dataset, dataset_col_name, year_int, month_int,
+    is_outdoor_data) {
   if (is_outdoor_data) {
     title <- "Outdoor Air Quality Health Index"
   } else {
     title <- "Indoor Air Quality Health Index"
   }
-  key_labels <- c("Low - 1", "Low - 2", "Low - 3", "Moderate - 4", "Moderate - 5",
+  key_labels <- c(
+    "Low - 1", "Low - 2", "Low - 3", "Moderate - 4", "Moderate - 5",
     "Moderate - 6", "High - 7", "High - 8", "High - 9",
     "High - 10", "Extreme - 10+"
   )
 
-  colours <- c("#00ccff", "#0099cc", "#006699", "#ffff00", "#ffcc00",
+  colours <- c(
+    "#00ccff", "#0099cc", "#006699", "#ffff00", "#ffcc00",
     "#ff9933", "#fe6666", "#ff0000", "#cc0000", "#990000", "#660000"
   )
 
-  index_breaks <- c(0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5,10.5,Inf)
-  
+  index_breaks <- c(0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, Inf)
+
   calendarPlot(
-    dataset, pollutant=dataset_col_name, year=year_int,
-    month=month_int, main = title, breaks = index_breaks,
+    dataset,
+    pollutant = dataset_col_name, year = year_int,
+    month = month_int, main = title, breaks = index_breaks,
     cols = colours, labels = key_labels
   )
 }
@@ -236,8 +239,7 @@ get_diurnal_plots <- function(
 
 
 smooth_colour_bins <- function(
-  colours, breaks, grad_range
-) {
+    colours, breaks, grad_range) {
   if (length(breaks) != (length(colours) + 1)) {
     stop("Colour sequences and breaks do not align.")
   }
@@ -249,13 +251,13 @@ smooth_colour_bins <- function(
     gradient <- colorRampPalette(c(colours[i - 1], colours[i]))
     gradient_colours <- gradient(grad_range) # Takes ceiling
 
-    next_start <- ceiling(breaks[i]+ (grad_range/2))
-    next_stop_mid <- ceiling(breaks[i+1] - (grad_range/2))
+    next_start <- ceiling(breaks[i] + (grad_range / 2))
+    next_stop_mid <- ceiling(breaks[i + 1] - (grad_range / 2))
 
     if (i < (length(breaks) - 1)) {
       next_colour <- rep(colours[i], ceiling(next_stop_mid - next_start))
     } else {
-      next_colour <- rep(colours[i], 0) #size 0 for last colour
+      next_colour <- rep(colours[i], 0) # size 0 for last colour
     }
     colour_list <- c(colour_list, gradient_colours, next_colour)
   }
@@ -264,13 +266,14 @@ smooth_colour_bins <- function(
 
 
 get_pollutant_table <- function(
-  pollutant_name, outdoor_dataset, indoor_dataset
-) {
+    pollutant_name, outdoor_dataset, indoor_dataset) {
   quantile75_outdoor <- quantile(
-    outdoor_dataset[[pollutant_name]], na.rm = TRUE
+    outdoor_dataset[[pollutant_name]],
+    na.rm = TRUE
   )[["75%"]]
   quantile75_indoor <- quantile(
-    indoor_dataset[[pollutant_name]], na.rm = TRUE
+    indoor_dataset[[pollutant_name]],
+    na.rm = TRUE
   )[["75%"]]
 
   # Create a table manually
@@ -324,20 +327,26 @@ get_box_plots <- function(
   return(list("outdoor_plot" = box_outdoor, "indoor_plot" = box_indoor))
 }
 
-make_caaqs_legend <- function(legend_title,
-  grn_val, ylw_val1, ylw_val2, org_val1,
-  org_val2, red_val) {
+make_caaqs_legend <- function(
+    legend_title,
+    grn_val, ylw_val1, ylw_val2, org_val1,
+    org_val2, red_val) {
   op <- par(no.readonly = TRUE)
   plot(
-    0, 0, type = "n", axes = FALSE, xlab = "", ylab = "",
+    0, 0,
+    type = "n", axes = FALSE, xlab = "", ylab = "",
     xlim = c(0, 1), ylim = c(0, 1)
   )
   legend(
     "center",
     title = legend_title,
-    legend = c(sprintf("Green (<=%s)", grn_val), sprintf("Yellow (%s-%s)",
-      ylw_val1, ylw_val2), sprintf("Orange (%s-%s)",
-      org_val1, org_val2), sprintf("Red (>%s)", red_val)),
+    legend = c(sprintf("Green (<=%s)", grn_val), sprintf(
+      "Yellow (%s-%s)",
+      ylw_val1, ylw_val2
+    ), sprintf(
+      "Orange (%s-%s)",
+      org_val1, org_val2
+    ), sprintf("Red (>%s)", red_val)),
     pch = 22,
     pt.bg = c("#187a1840", "#ffea0060", "#ff800040", "#ff000040"),
     col = "black",
@@ -427,12 +436,19 @@ summarized with calendar plots.
 ## Calendar plots
 
 ```{r Outdoor AQHI calendar plot , echo = FALSE, fig.show="hold", out.width="50%"}
-make_aqhi_calendar_plot(outdoor_data_24hr_avg, dataset_col_name = "AQHI",
-year_int = year, month_int = month_int, is_outdoor_data = TRUE)
-make_aqhi_calendar_plot(indoor_data_24hr_avg, dataset_col_name = "AQHI",
-year_int = year, month_int = month_int, is_outdoor_data = FALSE)
+make_aqhi_calendar_plot(outdoor_data_24hr_avg,
+  dataset_col_name = "AQHI",
+  year_int = year, month_int = month_int, is_outdoor_data = TRUE
+)
+make_aqhi_calendar_plot(indoor_data_24hr_avg,
+  dataset_col_name = "AQHI",
+  year_int = year, month_int = month_int, is_outdoor_data = FALSE
+)
 
-invisible(figure_nums(name = "aqhi", caption = sprintf("Calendar plot of outdoor (left) and indoor (right) AQHI at your facility during %s %s.", month_char, year)))
+invisible(figure_nums(name = "aqhi", caption = sprintf(
+  "Calendar plot of outdoor (left) and indoor (right) AQHI at your facility during %s %s.",
+  month_char, year
+)))
 ```
 `r figure_nums("aqhi")`
 
@@ -491,7 +507,8 @@ make_pollutant_calendar_plot(
 )
 
 invisible(figure_nums(name = "NO2_calendar", caption = sprintf(
-  "Calendar plots of outdoor (left) and indoor (right) NO~2~ during %s %s.", month_char, year
+  "Calendar plots of outdoor (left) and indoor (right) NO~2~ during %s %s.",
+  month_char, year
 )))
 ```
 `r figure_nums("NO2_calendar")`
@@ -573,7 +590,8 @@ make_pollutant_calendar_plot(
 )
 
 invisible(figure_nums(name = "PM_calendar", caption = sprintf(
-  "Calendar plots of outdoor (left) and indoor (right) PM~2.5~ during %s %s.", month_char, year
+  "Calendar plots of outdoor (left) and indoor (right) PM~2.5~ during %s %s.",
+  month_char, year
 )))
 ```
 `r figure_nums("PM_calendar")`
@@ -612,7 +630,9 @@ co_diurnals <- get_diurnal_plots(
   "CO (ppm)", list(h = 13, lty = 1, lwd = 2, col = "red")
 )
 num_colours <- 100
-co_colours <- colorRampPalette(c("#4C9F49", "yellow", "orange", "red"), bias = 0.3)(num_colours)
+co_colours <- colorRampPalette(c(
+  "#4C9F49", "yellow", "orange", "red"
+), bias = 0.3)(num_colours)
 ```
 
 ```{r CO month metrics, echo = FALSE}
@@ -756,7 +776,8 @@ co2_diurnals <- get_diurnal_plots(
 )
 num_colours <- 100
 co2_colours <- colorRampPalette(
-  c("#4C9F49", "yellow", "orange", "red"), bias = 0.3
+  c("#4C9F49", "yellow", "orange", "red"),
+  bias = 0.3
 )(num_colours)
 ```
 
