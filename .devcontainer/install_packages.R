@@ -5,7 +5,7 @@ packages <- c(
   "latticeExtra", "patchwork", "worldmet", "readxl",
   "openair", "gtools", "caret", "plyr", "kableExtra",
   "writexl", "grid", "gridExtra", "lattice", "png",
-  "styler"
+  "styler", "jsonlite"
 )
 
 # Check which packages are missing

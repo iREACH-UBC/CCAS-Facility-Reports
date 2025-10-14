@@ -266,39 +266,62 @@ smooth_colour_bins <- function(
 
 
 get_pollutant_table <- function(
-    pollutant_name, outdoor_dataset, indoor_dataset) {
-  quantile75_outdoor <- quantile(
+  pollutant_name, outdoor_dataset, indoor_dataset, show_indoor_data
+) {
+  round_metrics <- function(x) ifelse(x < 1, round(x, 2), round(x, 0))
+
+  quantile75_outdoor <- round_metrics(quantile(
     outdoor_dataset[[pollutant_name]],
     na.rm = TRUE
-  )[["75%"]]
-  quantile75_indoor <- quantile(
+  )[["75%"]])
+
+  quantile75_indoor <- round_metrics(quantile(
     indoor_dataset[[pollutant_name]],
     na.rm = TRUE
-  )[["75%"]]
+  )[["75%"]])
 
   # Create a table manually
   pollutant_metrics <- data.frame(
-    "Dataset" = c("Outdoor data", "Indoor data"),
+    "Location" = c("Outdoors", "Indoors"),
     "Min" = c(
-      min(outdoor_dataset[[pollutant_name]], na.rm = TRUE),
-      min(indoor_dataset[[pollutant_name]], na.rm = TRUE)
+      round_metrics(
+        min(outdoor_dataset[[pollutant_name]], na.rm = TRUE)
+      ),
+      round_metrics(
+        min(indoor_dataset[[pollutant_name]], na.rm = TRUE)
+      )
     ),
     "Max" = c(
-      max(outdoor_dataset[[pollutant_name]], na.rm = TRUE),
-      max(indoor_dataset[[pollutant_name]], na.rm = TRUE)
+      round_metrics(
+        max(outdoor_dataset[[pollutant_name]], na.rm = TRUE)
+      ),
+      round_metrics(
+        max(indoor_dataset[[pollutant_name]], na.rm = TRUE)
+      )
     ),
     "Median" = c(
-      median(outdoor_dataset[[pollutant_name]], na.rm = TRUE),
-      median(indoor_dataset[[pollutant_name]], na.rm = TRUE)
+      round_metrics(
+        median(outdoor_dataset[[pollutant_name]], na.rm = TRUE)
+      ),
+      round_metrics(
+        median(indoor_dataset[[pollutant_name]], na.rm = TRUE)
+      )
     ),
     "Mean" = c(
-      mean(outdoor_dataset[[pollutant_name]], na.rm = TRUE),
-      mean(indoor_dataset[[pollutant_name]], na.rm = TRUE)
+      round_metrics(
+        mean(outdoor_dataset[[pollutant_name]], na.rm = TRUE)
+      ),
+      round_metrics(
+        mean(indoor_dataset[[pollutant_name]], na.rm = TRUE)
+      )
     ),
     "75th Percentile" = c(quantile75_outdoor, quantile75_indoor),
     check.names = FALSE
   )
 
+  if (!show_indoor_data) {
+    pollutant_metrics <- head(pollutant_metrics, -1)
+  }
   knitr::kable(pollutant_metrics)
 }
 
@@ -393,8 +416,6 @@ Air pollutant concentrations are reported here with three units:
 
 
 
-\newpage
-
 # Air Quality Health Index (AQHI)
 
 ## What is the Air Quality Health Index (AQHI)? *[paraphrased from Health Canada]*
@@ -444,13 +465,7 @@ make_aqhi_calendar_plot(indoor_data_24hr_avg,
   dataset_col_name = "AQHI",
   year_int = year, month_int = month_int, is_outdoor_data = FALSE
 )
-
-invisible(figure_nums(name = "aqhi", caption = sprintf(
-  "Calendar plot of outdoor (left) and indoor (right) AQHI at your facility during %s %s.",
-  month_char, year
-)))
 ```
-`r figure_nums("aqhi")`
 
 
 # Nitrogen Dioxide (NO~2~)
@@ -475,7 +490,8 @@ no2_smoothed_colours <- smooth_colour_bins(
 get_pollutant_table(
   pollutant_name = "NO2",
   outdoor_dataset = outdoor_data,
-  indoor_dataset = indoor_data
+  indoor_dataset = indoor_data,
+  show_indoor_data = TRUE
 )
 
 invisible(table_nums(name = "no2_table", caption = sprintf(
@@ -505,33 +521,33 @@ make_pollutant_calendar_plot(
   threshold_value = 42,
   colours = no2_smoothed_colours
 )
-
-invisible(figure_nums(name = "NO2_calendar", caption = sprintf(
-  "Calendar plots of outdoor (left) and indoor (right) NO~2~ during %s %s.",
-  month_char, year
-)))
 ```
-`r figure_nums("NO2_calendar")`
 
 
 ## Hourly average plots
-```{r diurnal_NO2_outdoor, fig.height=3, echo=FALSE}
-plot(no2_diurnals$outdoor_plot)
-invisible(figure_nums(name = "outdoor_NO2_diurnal", caption = sprintf(
-  "Hourly average plot of outdoor NO~2~ during %s %s.", month_char, year
-)))
+```{r NO2 diurnal plots, fig.height=3, echo=FALSE}
+xrange <- range(
+  no2_diurnals$outdoor_plot$x.limits,
+  no2_diurnals$indoor_plot$x.limits,
+  finite = TRUE
+)
+yrange <- range(
+  no2_diurnals$outdoor_plot$y.limits,
+  no2_diurnals$indoor_plot$y.limits,
+  finite = TRUE
+)
+no2_diurnal_plots <- no2_diurnals$outdoor_plot + as.layer(no2_diurnals$indoor_plot)
+no2_diurnals_overlay <- update(no2_diurnal_plots,
+  main = list(
+    expression(paste(
+      "Hourly Average of Outdoor (Blue) and Indoor (Red) ", NO[2]
+    )), font = 1
+  ),
+  xlim = xrange,
+  ylim = yrange
+)
+print(no2_diurnals_overlay)
 ```
-
-`r figure_nums("outdoor_NO2_diurnal")`
-
-```{r diurnal_NO2_indoor, fig.height=3, echo=FALSE}
-plot(no2_diurnals$indoor_plot)
-invisible(figure_nums(name = "indoor_NO2_diurnal", caption = sprintf(
-  "Hourly average plot of indoor NO~2~ during %s %s.", month_char, year
-)))
-```
-
-`r figure_nums("indoor_NO2_diurnal")`
 
 
 # Particulate Matter (PM~2.5~)
@@ -541,7 +557,7 @@ invisible(figure_nums(name = "indoor_NO2_diurnal", caption = sprintf(
 PM~2.5~ is the mass fraction of particulate matter with diameters smaller than 2.5 micron. The sources of PM~2.5~ include fuel combustion from traffic and wildfires. Exposure to particulate matter can have effects on childhood health, including irritation of the eyes, nose, and throat, decreased respiratory function, the development of asthma in children. Metro Vancouver's Air Quality Objectives state that 24-hour average exposure to PM~2.5~ should not exceed 25 µg/m^3^, and that annual average exposure to PM~2.5~ should not exceed 8 µg/m^3^. However, we recommend that the exposure to (PM~2.5~) is reduced to as low as reasonably achievable, as there is no known minimum exposure threshold for individuals to experience health impacts.
 
 ```{r PM_setup, include=FALSE}
-pm_2_5_diurnals <- get_diurnal_plots(
+pm2_5_diurnals <- get_diurnal_plots(
   outdoor_data, indoor_data, "PM2_5",
   expression(paste(PM[2.5], " (", µg / m^3, ")")), NULL
 )
@@ -556,7 +572,8 @@ pm2_5_smoothed_colours <- smooth_colour_bins(
 get_pollutant_table(
   pollutant_name = "PM2_5",
   outdoor_dataset = outdoor_data,
-  indoor_dataset = indoor_data
+  indoor_dataset = indoor_data,
+  show_indoor_data = TRUE
 )
 
 invisible(table_nums(name = "PM2_5_table", caption = sprintf(
@@ -588,34 +605,35 @@ make_pollutant_calendar_plot(
   threshold_value = 25,
   colours = pm2_5_smoothed_colours
 )
-
-invisible(figure_nums(name = "PM_calendar", caption = sprintf(
-  "Calendar plots of outdoor (left) and indoor (right) PM~2.5~ during %s %s.",
-  month_char, year
-)))
 ```
-`r figure_nums("PM_calendar")`
 
 
 ## Hourly average plots
 
-```{r diurnal_PM_outdoor, fig.height=3, echo=FALSE}
-plot(pm_2_5_diurnals$outdoor_plot)
-invisible(figure_nums(name = "outdoor_PM_diurnal", caption = sprintf(
-  "Hourly average plot of outdoor PM~2.5~ during %s %s.", month_char, year
-)))
+```{r PM2.5 diurnal plots, fig.height=3, echo=FALSE}
+
+xrange <- range(
+  pm2_5_diurnals$outdoor_plot$x.limits,
+  pm2_5_diurnals$indoor_plot$x.limits,
+  finite = TRUE
+)
+yrange <- range(
+  pm2_5_diurnals$outdoor_plot$y.limits,
+  pm2_5_diurnals$indoor_plot$y.limits,
+  finite = TRUE
+)
+pm2_5_diurnal_plots <- pm2_5_diurnals$outdoor_plot + as.layer(pm2_5_diurnals$indoor_plot)
+pm2_5_diurnals_overlay <- update(pm2_5_diurnal_plots,
+  main = list(
+    expression(paste(
+      "Hourly Average of Outdoor (Blue) and Indoor (Red) ", PM[2.5]
+    )), font = 1
+  ),
+  xlim = xrange,
+  ylim = yrange
+)
+print(pm2_5_diurnals_overlay)
 ```
-
-`r figure_nums("outdoor_PM_diurnal")`
-
-```{r diurnal_PM_indoor, fig.height=3, echo=FALSE}
-plot(pm_2_5_diurnals$indoor_plot)
-invisible(figure_nums(name = "indoor_PM_diurnal", caption = sprintf(
-  "Hourly average plot of indoor PM~2.5~ during %s %s.", month_char, year
-)))
-```
-
-`r figure_nums("indoor_PM_diurnal")`
 
 
 # Carbon Monoxide (CO)
@@ -639,7 +657,8 @@ co_colours <- colorRampPalette(c(
 get_pollutant_table(
   pollutant_name = "CO",
   outdoor_dataset = outdoor_data,
-  indoor_dataset = indoor_data
+  indoor_dataset = indoor_data,
+  show_indoor_data = TRUE
 )
 
 invisible(table_nums(name = "co_table", caption = sprintf(
@@ -669,34 +688,33 @@ make_pollutant_calendar_plot(
   threshold_value = 5,
   colours = co_colours
 )
-
-invisible(figure_nums(name = "CO_calendar", caption = sprintf(
-  "Calendar plot of outdoor (left) and indoor (right) CO during %s %s.",
-  month_char, year
-)))
 ```
-`r figure_nums("CO_calendar")`
 
 
 ## Hourly average plots
 
-```{r diurnal_CO_outdoor, fig.height=3, echo=FALSE}
-plot(co_diurnals$outdoor_plot)
-invisible(figure_nums(name = "outdoor_CO_diurnal", caption = sprintf(
-  "Hourly average plot of outdoor CO during %s %s.", month_char, year
-)))
+```{r CO diurnal plots, fig.height=3, echo=FALSE}
+
+xrange <- range(
+  co_diurnals$outdoor_plot$x.limits,
+  co_diurnals$indoor_plot$x.limits,
+  finite = TRUE
+)
+yrange <- range(
+  co_diurnals$outdoor_plot$y.limits,
+  co_diurnals$indoor_plot$y.limits,
+  finite = TRUE
+)
+co_diurnal_plots <- co_diurnals$outdoor_plot + as.layer(co_diurnals$indoor_plot)
+co_diurnals_overlay <- update(co_diurnal_plots,
+  main = list(
+    "Hourly Average of Outdoor (Blue) and Indoor (Red) CO", font = 1
+  ),
+  xlim = xrange,
+  ylim = yrange
+)
+print(co_diurnals_overlay)
 ```
-
-`r figure_nums("outdoor_CO_diurnal")`
-
-```{r diurnal_CO_indoor, fig.height=3, echo=FALSE}
-plot(co_diurnals$indoor_plot)
-invisible(figure_nums(name = "indoor_CO_diurnal", caption = sprintf(
-  "Hourly average plot of indoor CO during %s %s.", month_char, year
-)))
-```
-
-`r figure_nums("indoor_CO_diurnal")`
 
 
 # Ozone (O~3~)
@@ -724,7 +742,8 @@ o3_smoothed_colours <- smooth_colour_bins(
 get_pollutant_table(
   pollutant_name = "O3",
   outdoor_dataset = outdoor_data,
-  indoor_dataset = indoor_data
+  indoor_dataset = indoor_data,
+  show_indoor_data = FALSE
 )
 
 invisible(table_nums(name = "o3_table", caption = sprintf(
@@ -745,22 +764,13 @@ make_pollutant_calendar_plot(
   threshold_value = 60,
   colours = o3_smoothed_colours
 )
-invisible(figure_nums(name = "outdoor_O3_calendar", caption = sprintf(
-  "Calendar plot of outdoor O~3~ during %s %s.", month_char, year
-)))
 ```
-`r figure_nums("outdoor_O3_calendar")`
 
 ## Hourly average plot
 
 ```{r diurnal_O3_outdoors, fig.height=3, echo=FALSE}
 plot(o3_diurnals$outdoor_plot)
-invisible(figure_nums(name = "outdoor_O3_diurnal", caption = sprintf(
-  "Hourly average plot of outdoor O~3~ during %s %s.", month_char, year
-)))
 ```
-
-`r figure_nums("outdoor_O3_diurnal")`
 
 
 # Carbon dioxoide (CO~2~)
@@ -785,7 +795,8 @@ co2_colours <- colorRampPalette(
 get_pollutant_table(
   pollutant_name = "CO2",
   outdoor_dataset = outdoor_data,
-  indoor_dataset = indoor_data
+  indoor_dataset = indoor_data,
+  show_indoor_data = TRUE
 )
 
 invisible(table_nums(name = "co2_table", caption = sprintf(
@@ -815,32 +826,32 @@ make_pollutant_calendar_plot(
   threshold_value = 1000,
   colours = co2_colours
 )
-
-invisible(figure_nums(name = "CO2_calendar", caption = sprintf(
-  "Calendar plot of outdoor (left) and indoor (right) CO~2~ during %s %s.",
-  month_char, year
-)))
 ```
-`r figure_nums("CO2_calendar")`
 
 
 ## Hourly average plots
 
-```{r diurnal_CO2_outdoor, fig.height=3, echo=FALSE}
-plot(co2_diurnals$outdoor_plot)
-invisible(figure_nums(name = "outdoor_CO2_diurnal", caption = sprintf(
-  "Hourly average plot of outdoor CO~2~ during %s %s.", month_char, year
-)))
+```{r CO2 diurnal plots, fig.height=3, echo=FALSE}
+
+xrange <- range(
+  co2_diurnals$outdoor_plot$x.limits,
+  co2_diurnals$indoor_plot$x.limits,
+  finite = TRUE
+)
+yrange <- range(
+  co2_diurnals$outdoor_plot$y.limits,
+  co2_diurnals$indoor_plot$y.limits,
+  finite = TRUE
+)
+co2_diurnal_plots <- co2_diurnals$outdoor_plot + as.layer(co2_diurnals$indoor_plot)
+co2_diurnals_overlay <- update(co2_diurnal_plots,
+  main = list(
+    expression(paste(
+      "Hourly Average of Outdoor (Blue) and Indoor (Red) ", CO[2]
+    )), font = 1
+  ),
+  xlim = xrange,
+  ylim = yrange
+)
+print(co2_diurnals_overlay)
 ```
-
-`r figure_nums("outdoor_CO2_diurnal")`
-
-
-```{r diurnal_CO2_indoor, fig.height=3, echo=FALSE}
-plot(co2_diurnals$indoor_plot)
-invisible(figure_nums(name = "indoor_CO2_diurnal", caption = sprintf(
-  "Hourly average plot of indoor CO~2~ during %s %s.", month_char, year
-)))
-```
-
-`r figure_nums("indoor_CO2_diurnal")`
