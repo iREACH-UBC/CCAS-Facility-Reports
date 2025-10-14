@@ -1,3 +1,6 @@
+# Current script saves csvs of processed outdoor data based on json
+# TODO: Modify for full automation
+
 library(jsonlite)
 
 sensor_metadata <- fromJSON("sensor_data.json")
@@ -10,3 +13,7 @@ sensor_metadata <- sensor_metadata[-c((num_extra_fields - 2):num_extra_fields)]
 
 outdoor_sensor_ids <- lapply(sensor_metadata, function(x) x$outdoor_sensor_ID)
 indoor_sensor_ids <- lapply(sensor_metadata, function(x) x$indoor_sensor_ID)
+
+for (location in names(sensor_metadata)) {
+  
+}

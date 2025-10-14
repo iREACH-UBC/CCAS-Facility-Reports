@@ -399,7 +399,7 @@ To collect the air pollutant data at your facility, low-cost air pollutant senso
 
 ## Calendar Plots
 
-A calendar plot is a visualization of the 24-hour average concentrations of a pollutant over the course of the deployment. The dates on the calendar are coloured according to the relative concentrations of the pollutant. The dates are coloured on a gradient, with the darker reds corresponding to measured concentrations approaching the exposure limits set by regulatory bodies.
+A calendar plot is a visualization of the 24-hour average concentrations of a pollutant over a month. The dates on the calendar are coloured according to the relative concentrations of the pollutant. The dates are coloured on a gradient, with the reds corresponding to measured concentrations approaching the air quality objectives set by regulatory bodies.
 
 ## Hourly Average Plots
 
@@ -484,7 +484,12 @@ no2_breaks <- c(0, 20.5, 31.5, 42, Inf)
 no2_smoothed_colours <- smooth_colour_bins(
   colours = no2_colours, breaks = no2_breaks, grad_range = 3
 )
+
+invisible(table_nums(name = "no2_table", caption = sprintf(
+  "NO~2~ metrics (%s) during %s %s.", units$NO2, month_char, year
+)))
 ```
+`r table_nums("no2_table")`
 
 ```{r NO2 month metrics, echo = FALSE}
 get_pollutant_table(
@@ -498,7 +503,6 @@ invisible(table_nums(name = "no2_table", caption = sprintf(
   "NO~2~ metrics (%s) during %s %s.", units$NO2, month_char, year
 )))
 ```
-`r table_nums("no2_table")`
 
 ## Calendar plots
 
@@ -540,11 +544,23 @@ no2_diurnal_plots <- no2_diurnals$outdoor_plot + as.layer(no2_diurnals$indoor_pl
 no2_diurnals_overlay <- update(no2_diurnal_plots,
   main = list(
     expression(paste(
-      "Hourly Average of Outdoor (Blue) and Indoor (Red) ", NO[2]
+      "Hourly Averages of Outdoor and Indoor ", NO[2]
     )), font = 1
   ),
   xlim = xrange,
-  ylim = yrange
+  ylim = yrange,
+  key = list(
+    lines = TRUE,
+    text = list(
+      lab = c("Outdoor", "Indoor"),
+      col = "black"
+    ),
+    inside = TRUE,
+    col = c("blue", "red"),
+    lty = 1,
+    space = "bottom",
+    cex = 0.75
+  )
 )
 print(no2_diurnals_overlay)
 ```
@@ -566,7 +582,12 @@ pm2_5_breaks <- c(0, 10.5, 18, 25, Inf)
 pm2_5_smoothed_colours <- smooth_colour_bins(
   colours = pm2_5_colours, breaks = pm2_5_breaks, grad_range = 3
 )
+
+invisible(table_nums(name = "PM2_5_table", caption = sprintf(
+  "PM~2.5~ metrics (%s) during %s %s.", units$PM2_5, month_char, year
+)))
 ```
+`r table_nums("PM2_5_table")`
 
 ```{r PM2.5 month metrics, echo = FALSE}
 get_pollutant_table(
@@ -575,12 +596,7 @@ get_pollutant_table(
   indoor_dataset = indoor_data,
   show_indoor_data = TRUE
 )
-
-invisible(table_nums(name = "PM2_5_table", caption = sprintf(
-  "PM~2.5~ metrics (%s) during %s %s.", units$PM2_5, month_char, year
-)))
 ```
-`r table_nums("PM2_5_table")`
 
 ## Calendar plots
 
@@ -626,11 +642,23 @@ pm2_5_diurnal_plots <- pm2_5_diurnals$outdoor_plot + as.layer(pm2_5_diurnals$ind
 pm2_5_diurnals_overlay <- update(pm2_5_diurnal_plots,
   main = list(
     expression(paste(
-      "Hourly Average of Outdoor (Blue) and Indoor (Red) ", PM[2.5]
+      "Hourly Average of Outdoor and Indoor ", PM[2.5]
     )), font = 1
   ),
   xlim = xrange,
-  ylim = yrange
+  ylim = yrange,
+  key = list(
+    lines = TRUE,
+    text = list(
+      lab = c("Outdoor", "Indoor"),
+      col = "black"
+    ),
+    inside = TRUE,
+    col = c("blue", "red"),
+    lty = 1,
+    space = "bottom",
+    cex = 0.75
+  )
 )
 print(pm2_5_diurnals_overlay)
 ```
@@ -651,7 +679,12 @@ num_colours <- 100
 co_colours <- colorRampPalette(c(
   "#4C9F49", "yellow", "orange", "red"
 ), bias = 0.3)(num_colours)
+
+invisible(table_nums(name = "co_table", caption = sprintf(
+  "CO metrics (%s) during %s %s.", units$CO, month_char, year
+)))
 ```
+`r table_nums("co_table")`
 
 ```{r CO month metrics, echo = FALSE}
 get_pollutant_table(
@@ -660,12 +693,7 @@ get_pollutant_table(
   indoor_dataset = indoor_data,
   show_indoor_data = TRUE
 )
-
-invisible(table_nums(name = "co_table", caption = sprintf(
-  "CO metrics (%s) during %s %s.", units$CO, month_char, year
-)))
 ```
-`r table_nums("co_table")`
 
 ## Calendar plots
 
@@ -708,10 +736,22 @@ yrange <- range(
 co_diurnal_plots <- co_diurnals$outdoor_plot + as.layer(co_diurnals$indoor_plot)
 co_diurnals_overlay <- update(co_diurnal_plots,
   main = list(
-    "Hourly Average of Outdoor (Blue) and Indoor (Red) CO", font = 1
+    "Hourly Average of Outdoor and Indoor CO", font = 1
   ),
   xlim = xrange,
-  ylim = yrange
+  ylim = yrange,
+  key = list(
+    lines = TRUE,
+    text = list(
+      lab = c("Outdoor", "Indoor"),
+      col = "black"
+    ),
+    inside = TRUE,
+    col = c("blue", "red"),
+    lty = 1,
+    space = "bottom",
+    cex = 0.75
+  )
 )
 print(co_diurnals_overlay)
 ```
@@ -736,7 +776,11 @@ o3_breaks <- c(0, 50.5, 56.5, 60, Inf)
 o3_smoothed_colours <- smooth_colour_bins(
   colours = o3_colours, breaks = o3_breaks, grad_range = 3
 )
+invisible(table_nums(name = "o3_table", caption = sprintf(
+  "O~3~ metrics (%s) during %s %s.", units$O3, month_char, year
+)))
 ```
+`r table_nums("o3_table")`
 
 ```{r O3 month metrics, echo = FALSE}
 get_pollutant_table(
@@ -745,12 +789,7 @@ get_pollutant_table(
   indoor_dataset = indoor_data,
   show_indoor_data = FALSE
 )
-
-invisible(table_nums(name = "o3_table", caption = sprintf(
-  "O~3~ metrics (%s) during %s %s.", units$O3, month_char, year
-)))
 ```
-`r table_nums("o3_table")`
 
 ## Calendar plot
 
@@ -789,7 +828,12 @@ co2_colours <- colorRampPalette(
   c("#4C9F49", "yellow", "orange", "red"),
   bias = 0.3
 )(num_colours)
+
+invisible(table_nums(name = "co2_table", caption = sprintf(
+  "CO~2~ metrics (%s) during %s %s.", units$CO2, month_char, year
+)))
 ```
+`r table_nums("co2_table")`
 
 ```{r CO2 month metrics, echo = FALSE}
 get_pollutant_table(
@@ -798,12 +842,7 @@ get_pollutant_table(
   indoor_dataset = indoor_data,
   show_indoor_data = TRUE
 )
-
-invisible(table_nums(name = "co2_table", caption = sprintf(
-  "CO~2~ metrics (%s) during %s %s.", units$CO2, month_char, year
-)))
 ```
-`r table_nums("co2_table")`
 
 ## Calendar plots
 
@@ -847,11 +886,23 @@ co2_diurnal_plots <- co2_diurnals$outdoor_plot + as.layer(co2_diurnals$indoor_pl
 co2_diurnals_overlay <- update(co2_diurnal_plots,
   main = list(
     expression(paste(
-      "Hourly Average of Outdoor (Blue) and Indoor (Red) ", CO[2]
+      "Hourly Average of Outdoor and Indoor ", CO[2]
     )), font = 1
   ),
   xlim = xrange,
-  ylim = yrange
+  ylim = yrange,
+  key = list(
+    lines = TRUE,
+    text = list(
+      lab = c("Outdoor", "Indoor"),
+      col = "black"
+    ),
+    inside = TRUE,
+    col = c("blue", "red"),
+    lty = 1,
+    space = "bottom",
+    cex = 0.75
+  )
 )
 print(co2_diurnals_overlay)
 ```
