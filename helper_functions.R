@@ -29,7 +29,8 @@ get_file_urls <- function(start_date, stop_date, sensor_id) {
 # TODO: add parameter for file destination instead of hardcoding
 # TODO: make a folder with month
 create_processed_csv <- function(
-  raw_git_urls, data_includes_time_change
+  raw_git_urls, data_includes_time_change,
+  month_folder, is_outdoor_data
 ) {
   if (data_includes_time_change) {
     timezone <- "Pacific/Pitcairn" # Constant PST
@@ -69,9 +70,14 @@ create_processed_csv <- function(
   pollutant_data <- na.omit(pollutant_data)
 
   sensor_id <- sub(".*calibrated_data/(.*?)/.*", "\\1", url)
+  if (is_outdoor_data) {
+    location_folder <- "outdoor_data_processed"
+  } else {
+    location_folder <- "indoor_data_processed"
+  }
   write.csv(
     pollutant_data,
-    sprintf("outdoor_data_processed/%s.csv", sensor_id),
+    file.path(location_folder, month_folder, sprintf("%s.csv", sensor_id)),
     row.names = FALSE, quote = FALSE
   )
 }
