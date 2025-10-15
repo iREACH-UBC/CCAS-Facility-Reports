@@ -2,18 +2,27 @@
 # TODO: Modify for full automation
 
 library(jsonlite)
+source("helper_functions.R")
 
 sensor_metadata <- fromJSON("sensor_data.json")
-includes_time_change <- sensor_data$includes_time_change
-month_char <- sensor_data$month_char
-year_int <- sensor_data$year
+includes_time_change <- sensor_metadata$includes_time_change
+month_char <- sensor_metadata$month
+year_int <- sensor_metadata$year
 
-num_extra_fields <- 3
-sensor_metadata <- sensor_metadata[-c((num_extra_fields - 2):num_extra_fields)]
-
-outdoor_sensor_ids <- lapply(sensor_metadata, function(x) x$outdoor_sensor_ID)
-indoor_sensor_ids <- lapply(sensor_metadata, function(x) x$indoor_sensor_ID)
+fields_to_remove <- c("includes_time_change", "month", "year")
+sensor_metadata <- sensor_metadata[setdiff(
+  names(sensor_metadata), fields_to_remove
+)]
 
 for (location in names(sensor_metadata)) {
-  
+  location_data <- sensor_metadata[[location]]
+
+  if (!is.null(location_data[["outdoor_sensor_ID"]])) {
+    raw_urls <- get_file_urls(
+      start_date = location_data[["outdoor_data_start_date"]],
+      stop_date = location_data[["outdoor_data_end_date"]],
+      sensor_id = location_data[["outdoor_sensor_ID"]]
+    )
+    create_processed_csv(raw_urls, includes_time_change)
+  }
 }

@@ -32,8 +32,8 @@
         "outdoor_data_end_date": "2025-09-30"
     },
     "Lions_Gate_Rec_Centre": {
-        "outdoor_sensor_ID": 632,
-        "indoor_sensor_ID": 629,
+        "outdoor_sensor_ID": "MOD-00632",
+        "indoor_sensor_ID": "MOD-00629",
         "indoor_data_start_date": "2025-09-01",
         "indoor_data_end_date": "2025-09-30",
         "outdoor_data_start_date": "2025-09-01",
@@ -56,8 +56,8 @@
         "outdoor_data_end_date": "2025-09-30"
     },
     "Pemberton_Community_Centre": {
-        "outdoor_sensor_ID": 616,
-        "indoor_sensor_ID": 614,
+        "outdoor_sensor_ID": "MOD-00616",
+        "indoor_sensor_ID": "MOD-00614",
         "indoor_data_start_date": "2025-09-01",
         "indoor_data_end_date": "2025-09-30",
         "outdoor_data_start_date": "2025-09-01",
@@ -88,27 +88,27 @@
         "outdoor_data_end_date": "2025-09-30"
     },
     "Evelyne_Saller_Centre": {
-        "outdoor_sensor_ID": 625,
-        "indoor_sensor_ID": 617,
-        "indoor_data_start_date": "2025-09-01",
+        "outdoor_sensor_ID": "MOD-00625",
+        "indoor_sensor_ID": "MOD-00617",
+        "indoor_data_start_date": "2025-09-03",
         "indoor_data_end_date": "2025-09-30",
-        "outdoor_data_start_date": "2025-09-01",
+        "outdoor_data_start_date": "2025-09-03",
         "outdoor_data_end_date": "2025-09-30"
     },
     "Capilano_Library": {
-        "outdoor_sensor_ID": 631,
-        "indoor_sensor_ID": 618,
-        "indoor_data_start_date": "2025-09-01",
+        "outdoor_sensor_ID": "MOD-00631",
+        "indoor_sensor_ID": "MOD-00618",
+        "indoor_data_start_date": "2025-09-17",
         "indoor_data_end_date": "2025-09-30",
-        "outdoor_data_start_date": "2025-09-01",
+        "outdoor_data_start_date": "2025-09-17",
         "outdoor_data_end_date": "2025-09-30"
     },
     "Lynn_Valley_Library": {
-        "outdoor_sensor_ID": 623,
-        "indoor_sensor_ID": 613,
-        "indoor_data_start_date": "2025-09-01",
+        "outdoor_sensor_ID": "MOD-00623",
+        "indoor_sensor_ID": "MOD-00613",
+        "indoor_data_start_date": "2025-09-19",
         "indoor_data_end_date": "2025-09-30",
-        "outdoor_data_start_date": "2025-09-01",
+        "outdoor_data_start_date": "2025-09-19",
         "outdoor_data_end_date": "2025-09-30"
     },
     "includes_time_change": false,

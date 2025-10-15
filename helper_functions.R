@@ -1,9 +1,11 @@
+library(dplyr)
+
 # Start and stop inclusive
 # Dates in "YYYY-MM-DD" format
 # sensor_id can be a char (ex. "2021") or number (ex. 2021)
-get_file_urls <- function(file_end_date_start, file_end_date_stop, sensor_id) {
-  start_date <- as.Date(file_end_date_start)
-  stop_date <- as.Date(file_end_date_stop)
+get_file_urls <- function(start_date, stop_date, sensor_id) {
+  start_date <- as.Date(start_date)
+  stop_date <- as.Date(stop_date)
 
   file_end_dates_numeric <- as.numeric(start_date):as.numeric(stop_date)
   file_start_dates_numeric <- file_end_dates_numeric - 2
@@ -20,3 +22,56 @@ get_file_urls <- function(file_end_date_start, file_end_date_stop, sensor_id) {
   sensor_id, sensor_id, start_dates_char, end_dates_char))
 }
 
+# TODO: refine to account for time change
+# Gets data without date overlaps
+# Removes columns that aren't pollutants or AQHI
+# TODO: select columns and process after combining to make more efficient
+# TODO: add parameter for file destination instead of hardcoding
+# TODO: make a folder with month
+create_processed_csv <- function(
+  raw_git_urls, data_includes_time_change
+) {
+  if (data_includes_time_change) {
+    timezone <- "Pacific/Pitcairn" # Constant PST
+  } else {
+    timezone <- "US/Pacific" # Local time, PST or PDT
+  }
+  truncated_df_list <- list()
+
+  for (url in raw_git_urls) {
+    sensor_data <- read.csv(url)
+    target_date_unformatted <- sub(".*to_(.*?).csv.*", "\\1", url)
+    target_date <- gsub("_", "-", target_date_unformatted)
+
+    # Get index of first occurrence
+    first_index <- grep(target_date, sensor_data$DATE)[1]
+
+    # Get subset of nested list
+    one_day_list <- lapply(sensor_data, function(x) x[first_index:length(sensor_data$DATE)])
+    truncated_df_list[[length(truncated_df_list) + 1]] <- as.data.frame(one_day_list)
+  }
+  sensor_df <- bind_rows(truncated_df_list)
+
+  # Select only pollutant level and AQHI data
+  # NO not selected because no guidelines available
+  pollutant_data <- sensor_df[c(
+    "DATE", "CO", "NO2", "NO", "O3", "PM2.5", "CO2", "AQHI"
+  )] 
+  # Reformat date field
+  colnames(pollutant_data)[[1]] <- "date" # timeAverage requires "date" field
+  pollutant_data$date <- as.POSIXct(
+    pollutant_data$date, format = "%Y-%m-%d %H:%M:%S", tz = timezone
+  )
+  # Reformat PM2.5
+  names(pollutant_data)[names(pollutant_data) == "PM2.5"] <- "PM2_5"
+
+  # Delete rows w/ NA (and rows w/o AQHI)
+  pollutant_data <- na.omit(pollutant_data)
+
+  sensor_id <- sub(".*calibrated_data/(.*?)/.*", "\\1", url)
+  write.csv(
+    pollutant_data,
+    sprintf("outdoor_data_processed/%s.csv", sensor_id),
+    row.names = FALSE, quote = FALSE
+  )
+}
