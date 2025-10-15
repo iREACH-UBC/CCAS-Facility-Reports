@@ -1,5 +1,5 @@
 ---
-title: 'West Vancouver Library - September Outdoor and Indoor AQ Data'
+title: 'Bowen Island Library and Recreation Centre - September Outdoor and Indoor AQ Data'
 date: "`r Sys.Date()`"
 output:
   pdf_document:
@@ -39,6 +39,7 @@ library(readxl)
 library(grid) # For legend grob
 library(gridExtra) # For extra legend when plotting
 library(png) # For forcing legend to centre
+library(zoo) # For AQHI calculations
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(message = FALSE)
 ```
@@ -59,8 +60,25 @@ year <- 2025
 
 ```{r Load and Subset Data, include = FALSE, message = FALSE, warning = FALSE}
 # Load data
-outdoor_data <- read.csv("outdoor_data_processed/2021.csv")
-indoor_data <- read.csv("outdoor_data_processed/2022.csv")
+outdoor_data <- read.csv("outdoor_data_processed/2030.csv")
+indoor_data <- read.csv("indoor_data_processed/2029_pred_2025_09_01.csv")
+
+# AQHI helper for indoor data
+apply_aqhi_ceiling <- function(aqhi_vec, pm25_1h_vec)
+  pmax(round(aqhi_vec), ceiling(pm25_1h_vec / 10)) |> as.integer()
+
+# Add AQHI column to indoor data
+NO2_3h   <- rollapply(indoor_data$NO2,   12, mean, fill = NA, align = "right", na.rm = TRUE)
+O3_3h    <- rollapply(indoor_data$O3,    12, mean, fill = NA, align = "right", na.rm = TRUE)
+PM2_5_3h <- rollapply(indoor_data$PM2_5, 12, mean, fill = NA, align = "right", na.rm = TRUE)
+PM2_5_1h <- rollapply(indoor_data$PM2_5,  4, mean, fill = NA, align = "right", na.rm = TRUE)
+
+aqhi_val <- (10 / 10.4) * 100 * (
+  (exp(0.000871 * NO2_3h) - 1) +
+    (exp(0.000537 * O3_3h) - 1) +
+    (exp(0.000487 * PM2_5_3h) - 1)
+)
+indoor_data$AQHI <- mapply(apply_aqhi_ceiling, aqhi_val, PM2_5_1h)
 
 data_list <- list(outdoor_data, indoor_data)
 
@@ -68,18 +86,29 @@ for (i in seq_along(data_list)) {
   # Remove rows with NAs
   data_list[[i]] <- na.omit(data_list[[i]])
 
-  # Ensure consistent date formatting (not needed if dates in UTC)
+  # Ensure consistent date formatting
   data_list[[i]]$date <- ifelse(
     grepl(":", data_list[[i]]$date),
     data_list[[i]]$date,
     paste0(data_list[[i]]$date, " 00:00") # add midnight if missing
   )
+  # data_list[[i]]$date <- as.POSIXct(
+  #   data_list[[i]]$date,
+  #   format = "%Y-%m-%d %H:%M"
+  #   # tz = "US/Pacific"
+  # )
+
   data_list[[i]]$date <- as.POSIXct(
     data_list[[i]]$date,
-    format = "%Y-%m-%d %H:%M", tz = "Etc/GMT-8"
+    format = "%Y-%m-%d %H:%M"
   )
+  # Convert indoor data to local time
+  # THIS DATA IS 14 HRS BACK, NOT IN UTC
+  if (i == 2) {
+    data_list[[i]]$date <- data_list[[i]]$date - 14 * 3600
+  }
 
-  # Rename columns
+  # Rename columns (TODO: remove??)
   names(data_list[[i]])[names(data_list[[i]]) == "NO2..ppb."] <- "NO2"
   names(data_list[[i]])[names(data_list[[i]]) == "NO..ppb."] <- "NO"
   names(data_list[[i]])[names(data_list[[i]]) == "CO2..ppm."] <- "CO2"
@@ -676,7 +705,7 @@ Carbon monoxide (CO) is a byproduct of incomplete combustion and is associated w
 ```{r CO_setup, include=FALSE}
 co_diurnals <- get_diurnal_plots(
   outdoor_data, indoor_data, "CO",
-  "CO (ppm)", list(h = 13, lty = 1, lwd = 2, col = "red")
+  "CO (ppm)", NULL
 )
 num_colours <- 100
 co_colours <- colorRampPalette(c(
@@ -772,7 +801,7 @@ In indoor environments, where there is no sunlight, ozone concentrations are gen
 o3_diurnals <- get_diurnal_plots(
   outdoor_data, indoor_data, "O3",
   expression(paste(O[3], " (ppb)")),
-  list(h = 82, lty = 1, lwd = 2, col = "red")
+  NULL
 )
 o3_colours <- c("#4C9F49", "yellow", "orange", "red")
 o3_breaks <- c(0, 50.5, 56.5, 60, Inf)
@@ -815,7 +844,7 @@ plot(o3_diurnals$outdoor_plot)
 ```
 
 
-# Carbon dioxoide (CO~2~)
+# Carbon dioxide (CO~2~)
 
 ## Context
 
