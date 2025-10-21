@@ -1,5 +1,5 @@
 ---
-title: 'Bowen Island Library and Recreation Centre - September Outdoor and Indoor AQ Data'
+title: 'Pemberton Community Centre - September Outdoor and Indoor AQ Data'
 date: "`r Sys.Date()`"
 output:
   pdf_document:
@@ -60,25 +60,8 @@ year <- 2025
 
 ```{r Load and Subset Data, include = FALSE, message = FALSE, warning = FALSE}
 # Load data
-outdoor_data <- read.csv("outdoor_data_processed/2030.csv")
-indoor_data <- read.csv("indoor_data_processed/2029_pred_2025_09_01.csv")
-
-# AQHI helper for indoor data
-apply_aqhi_ceiling <- function(aqhi_vec, pm25_1h_vec)
-  pmax(round(aqhi_vec), ceiling(pm25_1h_vec / 10)) |> as.integer()
-
-# Add AQHI column to indoor data
-NO2_3h   <- rollapply(indoor_data$NO2,   12, mean, fill = NA, align = "right", na.rm = TRUE)
-O3_3h    <- rollapply(indoor_data$O3,    12, mean, fill = NA, align = "right", na.rm = TRUE)
-PM2_5_3h <- rollapply(indoor_data$PM2_5, 12, mean, fill = NA, align = "right", na.rm = TRUE)
-PM2_5_1h <- rollapply(indoor_data$PM2_5,  4, mean, fill = NA, align = "right", na.rm = TRUE)
-
-aqhi_val <- (10 / 10.4) * 100 * (
-  (exp(0.000871 * NO2_3h) - 1) +
-    (exp(0.000537 * O3_3h) - 1) +
-    (exp(0.000487 * PM2_5_3h) - 1)
-)
-indoor_data$AQHI <- mapply(apply_aqhi_ceiling, aqhi_val, PM2_5_1h)
+outdoor_data <- read.csv("outdoor_data_processed/September2025/MOD-00616.csv")
+indoor_data <- read.csv("indoor_data_processed/September2025/2035_pred_2025_09_01.csv")
 
 data_list <- list(outdoor_data, indoor_data)
 
@@ -107,18 +90,27 @@ for (i in seq_along(data_list)) {
   if (i == 2) {
     data_list[[i]]$date <- data_list[[i]]$date - 14 * 3600
   }
-
-  # Rename columns (TODO: remove??)
-  names(data_list[[i]])[names(data_list[[i]]) == "NO2..ppb."] <- "NO2"
-  names(data_list[[i]])[names(data_list[[i]]) == "NO..ppb."] <- "NO"
-  names(data_list[[i]])[names(data_list[[i]]) == "CO2..ppm."] <- "CO2"
-  names(data_list[[i]])[names(data_list[[i]]) == "O3..ppb."] <- "O3"
-  names(data_list[[i]])[names(data_list[[i]]) == "CO..ppm."] <- "CO"
-  names(data_list[[i]])[names(data_list[[i]]) == "PM2_5.ug.m3."] <- "PM2_5"
 }
 
 outdoor_data <- data_list[[1]]
 indoor_data <- data_list[[2]]
+
+# AQHI helper for indoor data
+apply_aqhi_ceiling <- function(aqhi_vec, pm25_1h_vec)
+  pmax(round(aqhi_vec), ceiling(pm25_1h_vec / 10)) |> as.integer()
+
+# Add AQHI column to indoor data
+NO2_3h   <- rollapply(indoor_data$NO2,   12, mean, fill = NA, align = "right", na.rm = TRUE)
+O3_3h    <- rollapply(indoor_data$O3,    12, mean, fill = NA, align = "right", na.rm = TRUE)
+PM2_5_3h <- rollapply(indoor_data$PM2_5, 12, mean, fill = NA, align = "right", na.rm = TRUE)
+PM2_5_1h <- rollapply(indoor_data$PM2_5,  4, mean, fill = NA, align = "right", na.rm = TRUE)
+
+aqhi_val <- (10 / 10.4) * 100 * (
+  (exp(0.000871 * NO2_3h) - 1) +
+    (exp(0.000537 * O3_3h) - 1) +
+    (exp(0.000487 * PM2_5_3h) - 1)
+)
+indoor_data$AQHI <- mapply(apply_aqhi_ceiling, aqhi_val, PM2_5_1h)
 
 # Define pollutants and their units
 pollutants <- c("NO2", "NO", "CO2", "O3", "CO", "PM2_5")
@@ -704,7 +696,7 @@ Carbon monoxide (CO) is a byproduct of incomplete combustion and is associated w
 
 ```{r CO_setup, include=FALSE}
 co_diurnals <- get_diurnal_plots(
-  outdoor_data, indoor_data, "CO",
+  outdoor_data[382:2823, ], indoor_data, "CO",
   "CO (ppm)", NULL
 )
 num_colours <- 100
@@ -721,7 +713,7 @@ invisible(table_nums(name = "co_table", caption = sprintf(
 ```{r CO month metrics, echo = FALSE}
 get_pollutant_table(
   pollutant_name = "CO",
-  outdoor_dataset = outdoor_data,
+  outdoor_dataset = outdoor_data[382:2823, ],
   indoor_dataset = indoor_data,
   show_indoor_data = TRUE
 )
@@ -731,7 +723,7 @@ get_pollutant_table(
 
 ```{r CO calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%"}
 make_pollutant_calendar_plot(
-  dataset = outdoor_data,
+  dataset = outdoor_data[382:2823, ],
   dataset_col_name = "CO",
   year_int = year,
   month_int = month_int,

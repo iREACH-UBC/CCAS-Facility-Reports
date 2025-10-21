@@ -66,8 +66,8 @@ create_processed_csv <- function(
   # Reformat PM2.5
   names(pollutant_data)[names(pollutant_data) == "PM2.5"] <- "PM2_5"
 
-  # Delete rows w/ NA (and rows w/o AQHI)
-  pollutant_data <- na.omit(pollutant_data)
+  # # Delete rows w/ NA (and rows w/o AQHI)
+  # pollutant_data <- na.omit(pollutant_data)
 
   sensor_id <- sub(".*calibrated_data/(.*?)/.*", "\\1", url)
   if (is_outdoor_data) {
