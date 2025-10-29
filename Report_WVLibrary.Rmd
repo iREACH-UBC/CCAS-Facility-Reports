@@ -1,20 +1,20 @@
 ---
-title: 'Pemberton Community Centre - September Outdoor and Indoor AQ Data'
+title: 'West Vancouver Memorial Library - September Outdoor and Indoor AQ Data'
+subtitle: 'UBC Community Clean Air Spaces (CCAS) Research Project'
 date: "`r Sys.Date()`"
 output:
   pdf_document:
     number_sections: no
-    toc: yes
+    toc: no
     fig_caption: yes
   word_document:
     toc: no
   html_document:
     df_print: paged
-    toc: yes
+    toc: no
 authors: Hugo Dignoes Ricart, Caroline Webber, Krista Traboulay, and Prof. Naomi Zimmerman
 ---
 
-\newpage
 
 ```{r setup, include=FALSE}
 library(patchwork)
@@ -60,8 +60,8 @@ year <- 2025
 
 ```{r Load and Subset Data, include = FALSE, message = FALSE, warning = FALSE}
 # Load data
-outdoor_data <- read.csv("outdoor_data_processed/September2025/MOD-00616.csv")
-indoor_data <- read.csv("indoor_data_processed/September2025/2035_pred_2025_09_01.csv")
+outdoor_data <- read.csv("outdoor_data_processed/September2025/2021.csv")
+indoor_data <- read.csv("indoor_data_processed/September2025/2020_pred_2025_09_01.csv")
 
 data_list <- list(outdoor_data, indoor_data)
 
@@ -233,16 +233,16 @@ make_aqhi_calendar_plot <- function(
 
 # For both indoor and outdoor datasets
 get_diurnal_plots <- function(
-    outdoor_dataset, indoor_dataset, pollutant_name,
+    outdoor_hr_avg_dataset, indoor_hr_avg_dataset, pollutant_name,
     y_label_expression, horizontal_references) {
-  diurnal_outdoor <- timeVariation(outdoor_dataset,
+  diurnal_outdoor <- timeVariation(outdoor_hr_avg_dataset,
     pollutant = pollutant_name,
     ylab = y_label_expression,
     xlab = "Hour", cols = "blue",
     ref.y = horizontal_references
   )[["plot"]][["hour"]]
 
-  diurnal_indoor <- timeVariation(indoor_dataset,
+  diurnal_indoor <- timeVariation(indoor_hr_avg_dataset,
     pollutant = pollutant_name,
     ylab = y_label_expression,
     xlab = "Hour", cols = "red",
@@ -287,17 +287,17 @@ smooth_colour_bins <- function(
 
 
 get_pollutant_table <- function(
-  pollutant_name, outdoor_dataset, indoor_dataset, show_indoor_data
+  pollutant_name, outdoor_hr_avg_dataset, indoor_hr_avg_dataset, show_indoor_data
 ) {
   round_metrics <- function(x) ifelse(x < 1, round(x, 2), round(x, 0))
 
   quantile75_outdoor <- round_metrics(quantile(
-    outdoor_dataset[[pollutant_name]],
+    outdoor_hr_avg_dataset[[pollutant_name]],
     na.rm = TRUE
   )[["75%"]])
 
   quantile75_indoor <- round_metrics(quantile(
-    indoor_dataset[[pollutant_name]],
+    indoor_hr_avg_dataset[[pollutant_name]],
     na.rm = TRUE
   )[["75%"]])
 
@@ -306,40 +306,39 @@ get_pollutant_table <- function(
     "Location" = c("Outdoors", "Indoors"),
     "Min" = c(
       round_metrics(
-        min(outdoor_dataset[[pollutant_name]], na.rm = TRUE)
+        min(outdoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
       ),
       round_metrics(
-        min(indoor_dataset[[pollutant_name]], na.rm = TRUE)
+        min(indoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
       )
     ),
     "Max" = c(
       round_metrics(
-        max(outdoor_dataset[[pollutant_name]], na.rm = TRUE)
+        max(outdoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
       ),
       round_metrics(
-        max(indoor_dataset[[pollutant_name]], na.rm = TRUE)
+        max(indoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
       )
     ),
     "Median" = c(
       round_metrics(
-        median(outdoor_dataset[[pollutant_name]], na.rm = TRUE)
+        median(outdoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
       ),
       round_metrics(
-        median(indoor_dataset[[pollutant_name]], na.rm = TRUE)
+        median(indoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
       )
     ),
     "Mean" = c(
       round_metrics(
-        mean(outdoor_dataset[[pollutant_name]], na.rm = TRUE)
+        mean(outdoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
       ),
       round_metrics(
-        mean(indoor_dataset[[pollutant_name]], na.rm = TRUE)
+        mean(indoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
       )
     ),
     "75th Percentile" = c(quantile75_outdoor, quantile75_indoor),
     check.names = FALSE
   )
-
   # Set negatives to zero
   pollutant_metrics[pollutant_metrics < 0] <- 0
 
@@ -352,10 +351,10 @@ get_pollutant_table <- function(
 
 # For both indoor and outdoor datasets
 get_box_plots <- function(
-    outdoor_dataset, indoor_dataset, pollutant_name,
+    outdoor_hr_avg_dataset, indoor_hr_avg_dataset, pollutant_name,
     y_label_expression) {
   box_outdoor <- ggplot(
-    outdoor_dataset, aes(x = "", y = !!sym(pollutant_name))
+    outdoor_hr_avg_dataset, aes(x = "", y = !!sym(pollutant_name))
   ) +
     geom_boxplot(fill = "blue") +
     labs(
@@ -363,7 +362,7 @@ get_box_plots <- function(
       main = bquote("Outdoor" ~ .(y_label_expression[[1]]) ~ "Distribution")
     ) +
     theme_minimal()
-  box_indoor <- ggplot(indoor_dataset, aes(x = "", y = !!sym(pollutant_name))) +
+  box_indoor <- ggplot(indoor_hr_avg_dataset, aes(x = "", y = !!sym(pollutant_name))) +
     geom_boxplot(fill = "red") +
     labs(
       y = y_label_expression, x = "",
@@ -405,39 +404,14 @@ make_caaqs_legend <- function(
 ```
 
 # Background and Introduction
-This report provides the results of air monitoring that was conducted at your facility during August 2025.
+Community Clean Air Spaces (CCAS), often located in community centres or libraries, vary widely in their air quality control strategies.
+Despite their increasing use, little is known about their long-term effectiveness and their effectiveness outside of wildfire events.
+This research project aims to address this gap by examining air quality beyond the summer wildfire season and providing a more comprehensive assessment of pollutant levels and exposure risks.
+The data collected at your facility and other CCAS will help to identify trends, understand the impacts of different CCAS characteristics, and inform future efforts to improve community air protection.
 
-The patterns and levels of NO, NO~2~, PM~2.5~, CO, CO~2~, and O~3~ outside and inside the library will be summarized with a series of functions and plots found in the R package ‘openair’ [D. C. Carslaw and Ropkins (2012)].
-
-The purpose of this report is to provide the reader with a better understanding of the following:
-
-* Reading and interpreting Hourly Average, and Calendar plots
-
+This report provides the results of CCAS air monitoring that was conducted at your facility during `r month_char` `r year`.
+Please see the Appendix for more details on [\underline{\textcolor{blue}{instrumentation and methods}}](#study-instrumentation-and-methods), [\underline{\textcolor{blue}{goals of the report}}](#report-purpose), and [\underline{\textcolor{blue}{how we are summarizing air pollution data}}](#how-we-are-summarizing-air-pollution-data).
 If you have questions about this report, please email Prof. Naomi Zimmerman, Caroline Webber or Hugo Dignoes Ricart at  [HelloAirQuality@mech.ubc.ca](mailto:HelloAirQuality@mech.ubc.ca) 
-
-# Study Instrumentation
-
-To collect the air pollutant data at your facility, low-cost air pollutant sensors, the SENSIT RAMP (remote air quality monitoring platform) and/or the QuantAQ MODULAIR were deployed. Low-cost sensors are powerful tools that can be used to make air pollution data more accessible. However, because these sensors are lower-cost, it is possible for the sensors to fail, and calibrations must be performed on the raw data to ensure accuracy. Once the sensors are properly calibrated, their data are generally reliable. The reported data has been calibrated.
-
-# How we are summarizing air pollution data
-
-## Calendar Plots
-
-A calendar plot is a visualization of the 24-hour average concentrations of a pollutant over a month. The dates on the calendar are coloured according to the relative concentrations of the pollutant. The dates are coloured on a gradient, with the reds corresponding to measured concentrations approaching the air quality objectives set by regulatory bodies.
-
-## Hourly Average Plots
-
-When analyzing air pollution data, useful information can be deducted from the typical pattern of air pollution variations throughout the course of a day. An hourly average plot graphs the average concentration of a monitored pollutant at each hour of the day. Variations in the pollutant’s concentration can be used to interpret its source(s). It is important to note that each point on the daily average plot represents an average across all days for the specified hour. For example, the point at 6AM would represent the average concentration between 5-6AM over the complete period of monitoring. Day-to-day concentration variations are represented by shaded regions above or below the data point, where more day-to-day variability will be represented with larger shaded regions.
-
-## Units of Measurement
-Air pollutant concentrations are reported here with three units: 
-
-1. **Part per billion (ppb)**: This is the volume fraction of the air pollutant in the air. Think of this the same way you would think of a "percent". One percent as a fraction is 1/100 = 0.01. One part per billion (ppb) is 1/1,000,000,000 = $1\times10^{-9}$. So if a pollutant concentration is 25 ppb, then that means there is $25\times10^{-9}$ m$^{3}$ of the pollutant in one cubic metre of air. We use this unit to report concentrations of nitrogen oxides (NO~x~), and ozone (O~3~).
-
-2. **Part per million (ppm)**: This is the volume fraction of the air pollutant in the air. Think of this the same way you would think of a "percent". One percent as a fraction is 1/100 = 0.01. One part per million (ppm) is 1/1,000,000 = $1\times10^{-6}$. So if a pollutant concentration is 25 ppm, then that means there is $25\times10^{-6}$ m$^{3}$ of the pollutant in one cubic metre of air. We use this unit to report concentrations of carbon monoxide (CO) and carbon dioxide (CO~2~).
-
-3. **Micrograms per cubic metre (µg/m$^{3}$)**: This is a mass fraction and is used for measuring the mass of particulate matter in the air. One microgram is equivalent to $1\times10^{-6}$ grams. So if a pollutant concentration is 25 µg/m$^{3}$, then that means there is $25\times10^{-6}$ g of the pollutant in one cubic metre of air. We use this unit to report concentrations of PM~2.5~ (Particles with a diameter less than 2.5 microns).
-
 
 
 # Air Quality Health Index (AQHI)
@@ -452,31 +426,11 @@ It also provides advice on how you can improve the quality of the air you breath
 This index pays particular attention to people who are sensitive to air pollution and provides them with
 advice on how to protect their health during air quality levels associated with low, moderate, high and very
 high health risks.
-
-## How is the AQHI calculated?
-
-In British Columbia, the AQHI is calculated concurrently in two ways, and the highest of the two values is
-reported:
-
-1. A calculation based on the relative risks of a combination of common air pollutants that is known to
-harm human health:
-    a. Ozone (O~3~) at ground level,
-    b. Particulate Matter (PM~2.5~) and
-    c. Nitrogen Dioxide (NO~2~).
-2. Particulate Matter (PM~2.5~) concentration alone
-
-## What is the scale for the AQHI?
-
-The AQHI is measured on a scale ranging from 1-10+. The AQHI index values are grouped into health risk
-categories as shown below. These categories help you to easily and quickly identify your level of risk.
-
-* 1-3 Low health
-* 4-6 Moderate health risk
-* 7-10 High health risk
-* 10 + Very high health risk
+See the Appendix for more details on [\underline{\textcolor{blue}{how the AQHI is calculated}}](#how-is-the-aqhi-calculated) and the [\underline{\textcolor{blue}{AQHI scale}}](#what-is-the-scale-for-the-aqhi).
 
 From the data collected at your facility, we calculated the AQHI indoors and outdoors. These results are
 summarized with calendar plots.
+
 
 ## Calendar plots
 
@@ -496,7 +450,7 @@ make_aqhi_calendar_plot(indoor_data_24hr_avg,
 
 ## Context
 
-NO~x~ is the combination of nitrogen monoxide (NO) and nitrogen dioxide (NO~2~). Nitrogen monoxide (NO) is formed when nitrogen and oxygen in combustion air combine with one another at the high temperatures experienced in vehicle engines. NO further combines with oxygen to create nitrogen dioxide (NO~2~). In this report we summarize total NO~2~. The effects of NO~2~ exposure include increased inflammation of the airways, coughing and wheezing, reduced lung function, and the onset of asthma and impairment of lung development in children. Metro Vancouver has set air quality recommendations for NO~2~, stating that hourly average exposure to NO~2~ should not exceed 42 ppb, and that annual average exposure to NO~2~ should not exceed 12 ppb. However, because there is no known minimum threshold exposure to (NO~2~) that causes these adverse health impacts, we recommend limiting the exposure to as low as reasonably achievable. 
+NO~x~ is the combination of nitrogen monoxide (NO) and nitrogen dioxide (NO~2~). Nitrogen monoxide (NO) is formed when nitrogen and oxygen in combustion air combine with one another at the high temperatures. NO further combines with oxygen to create nitrogen dioxide (NO~2~). In this report we summarize total NO~2~. Outdoor sources of NO~2~ include emissions from vehicles, aircraft, and fossil fuel power plants. Indoor sources include stoves, furnaces, and water heaters. The effects of NO~2~ exposure include increased inflammation of the airways, coughing and wheezing, reduced lung function, and the onset of asthma and impairment of lung development in children. Metro Vancouver has set air quality recommendations for NO~2~, stating that hourly average exposure to NO~2~ should not exceed 42 ppb, and that annual average exposure to NO~2~ should not exceed 12 ppb. However, because there is no known minimum threshold exposure to (NO~2~) that causes these adverse health impacts, we recommend limiting the exposure to as low as reasonably achievable. 
 
 ```{r NO2_setup, include=FALSE}
 no2_diurnals <- get_diurnal_plots(
@@ -510,7 +464,7 @@ no2_smoothed_colours <- smooth_colour_bins(
 )
 
 invisible(table_nums(name = "no2_table", caption = sprintf(
-  "NO~2~ metrics (%s) during %s %s.", units$NO2, month_char, year
+  "NO~2~ metrics (%s) during %s %s over one hour averaging period.", units$NO2, month_char, year
 )))
 ```
 `r table_nums("no2_table")`
@@ -518,8 +472,8 @@ invisible(table_nums(name = "no2_table", caption = sprintf(
 ```{r NO2 month metrics, echo = FALSE}
 get_pollutant_table(
   pollutant_name = "NO2",
-  outdoor_dataset = outdoor_data,
-  indoor_dataset = indoor_data,
+  outdoor_hr_avg_dataset = outdoor_data_hr_avg,
+  indoor_hr_avg_dataset = indoor_data_hr_avg,
   show_indoor_data = TRUE
 )
 
@@ -594,7 +548,7 @@ print(no2_diurnals_overlay)
 
 ## Context
 
-PM~2.5~ is the mass fraction of particulate matter with diameters smaller than 2.5 micron. The sources of PM~2.5~ include fuel combustion from traffic and wildfires. Exposure to particulate matter can have effects on childhood health, including irritation of the eyes, nose, and throat, decreased respiratory function, the development of asthma in children. Metro Vancouver's Air Quality Objectives state that 24-hour average exposure to PM~2.5~ should not exceed 25 µg/m^3^, and that annual average exposure to PM~2.5~ should not exceed 8 µg/m^3^. However, we recommend that the exposure to (PM~2.5~) is reduced to as low as reasonably achievable, as there is no known minimum exposure threshold for individuals to experience health impacts.
+PM~2.5~ is the mass fraction of particulate matter with diameters smaller than 2.5 micron. Outdoor sources of PM~2.5~ include fuel combustion from traffic and wildfires, while indoor sources include emissions from gas and wood stoves, furnaces, and tobacco smoke. Exposure to particulate matter can have effects on childhood health, including irritation of the eyes, nose, and throat, decreased respiratory function, the development of asthma in children. Metro Vancouver's Air Quality Objectives state that 24-hour average exposure to PM~2.5~ should not exceed 25 µg/m^3^, and that annual average exposure to PM~2.5~ should not exceed 8 µg/m^3^. However, we recommend that the exposure to (PM~2.5~) is reduced to as low as reasonably achievable, as there is no known minimum exposure threshold for individuals to experience health impacts.
 
 ```{r PM_setup, include=FALSE}
 pm2_5_diurnals <- get_diurnal_plots(
@@ -608,7 +562,7 @@ pm2_5_smoothed_colours <- smooth_colour_bins(
 )
 
 invisible(table_nums(name = "PM2_5_table", caption = sprintf(
-  "PM~2.5~ metrics (%s) during %s %s.", units$PM2_5, month_char, year
+  "PM~2.5~ metrics (%s) during %s %s over one hour averaging period.", units$PM2_5, month_char, year
 )))
 ```
 `r table_nums("PM2_5_table")`
@@ -616,8 +570,8 @@ invisible(table_nums(name = "PM2_5_table", caption = sprintf(
 ```{r PM2.5 month metrics, echo = FALSE}
 get_pollutant_table(
   pollutant_name = "PM2_5",
-  outdoor_dataset = outdoor_data,
-  indoor_dataset = indoor_data,
+  outdoor_hr_avg_dataset = outdoor_data_hr_avg,
+  indoor_hr_avg_dataset = indoor_data_hr_avg,
   show_indoor_data = TRUE
 )
 ```
@@ -696,16 +650,16 @@ Carbon monoxide (CO) is a byproduct of incomplete combustion and is associated w
 
 ```{r CO_setup, include=FALSE}
 co_diurnals <- get_diurnal_plots(
-  outdoor_data[382:2823, ], indoor_data, "CO",
+  outdoor_data, indoor_data, "CO",
   "CO (ppm)", NULL
 )
 num_colours <- 100
 co_colours <- colorRampPalette(c(
-  "#4C9F49", "yellow", "orange", "red"
+  "#4C9F49", "#4C9F49", "yellow", "orange", "red"
 ), bias = 0.3)(num_colours)
 
 invisible(table_nums(name = "co_table", caption = sprintf(
-  "CO metrics (%s) during %s %s.", units$CO, month_char, year
+  "CO metrics (%s) during %s %s over one hour averaging period.", units$CO, month_char, year
 )))
 ```
 `r table_nums("co_table")`
@@ -713,8 +667,8 @@ invisible(table_nums(name = "co_table", caption = sprintf(
 ```{r CO month metrics, echo = FALSE}
 get_pollutant_table(
   pollutant_name = "CO",
-  outdoor_dataset = outdoor_data[382:2823, ],
-  indoor_dataset = indoor_data,
+  outdoor_hr_avg_dataset = outdoor_data_hr_avg,
+  indoor_hr_avg_dataset = indoor_data_hr_avg,
   show_indoor_data = TRUE
 )
 ```
@@ -723,7 +677,7 @@ get_pollutant_table(
 
 ```{r CO calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%"}
 make_pollutant_calendar_plot(
-  dataset = outdoor_data[382:2823, ],
+  dataset = outdoor_data,
   dataset_col_name = "CO",
   year_int = year,
   month_int = month_int,
@@ -801,7 +755,7 @@ o3_smoothed_colours <- smooth_colour_bins(
   colours = o3_colours, breaks = o3_breaks, grad_range = 3
 )
 invisible(table_nums(name = "o3_table", caption = sprintf(
-  "O~3~ metrics (%s) during %s %s.", units$O3, month_char, year
+  "O~3~ metrics (%s) during %s %s over one hour averaging period.", units$O3, month_char, year
 )))
 ```
 `r table_nums("o3_table")`
@@ -809,8 +763,8 @@ invisible(table_nums(name = "o3_table", caption = sprintf(
 ```{r O3 month metrics, echo = FALSE}
 get_pollutant_table(
   pollutant_name = "O3",
-  outdoor_dataset = outdoor_data,
-  indoor_dataset = indoor_data,
+  outdoor_hr_avg_dataset = outdoor_data_hr_avg,
+  indoor_hr_avg_dataset = indoor_data_hr_avg,
   show_indoor_data = FALSE
 )
 ```
@@ -854,7 +808,7 @@ co2_colours <- colorRampPalette(
 )(num_colours)
 
 invisible(table_nums(name = "co2_table", caption = sprintf(
-  "CO~2~ metrics (%s) during %s %s.", units$CO2, month_char, year
+  "CO~2~ metrics (%s) during %s %s over one hour averaging period.", units$CO2, month_char, year
 )))
 ```
 `r table_nums("co2_table")`
@@ -862,8 +816,8 @@ invisible(table_nums(name = "co2_table", caption = sprintf(
 ```{r CO2 month metrics, echo = FALSE}
 get_pollutant_table(
   pollutant_name = "CO2",
-  outdoor_dataset = outdoor_data,
-  indoor_dataset = indoor_data,
+  outdoor_hr_avg_dataset = outdoor_data_hr_avg,
+  indoor_hr_avg_dataset = indoor_data_hr_avg,
   show_indoor_data = TRUE
 )
 ```
@@ -930,3 +884,63 @@ co2_diurnals_overlay <- update(co2_diurnal_plots,
 )
 print(co2_diurnals_overlay)
 ```
+\newpage
+
+# Appendix
+
+## Background
+
+### Study Instrumentation and Methods
+To collect the air pollutant data at your facility, low-cost air pollutant sensors, the SENSIT RAMP (remote air quality monitoring platform) and/or the QuantAQ MODULAIR were deployed. Low-cost sensors are powerful tools that can be used to make air pollution data more accessible. However, because these sensors are lower-cost, it is possible for the sensors to fail, and calibrations must be performed on the raw data to ensure accuracy. Once the sensors are properly calibrated, their data are generally reliable. The reported data has been calibrated.
+
+The patterns and levels of NO~2~, PM~2.5~, CO, CO~2~, and O~3~ outside and inside the facility are summarized with a series of functions and plots found in the R package ‘openair’ [D. C. Carslaw and Ropkins (2012)].
+
+### Report Purpose
+The purpose of this report is to provide the reader with a better understanding of the following:
+
+* Reading and interpreting Calendar and Hourly Average plots
+* Patterns in air pollutant concentrations based upon time of day at their facility
+* Correlation between pollutants and sources like traffic and wildfire smoke
+
+## How we are summarizing air pollution data
+
+### Calendar Plots
+
+A calendar plot is a visualization of the 24-hour average concentrations of a pollutant over a month. The dates on the calendar are coloured according to the relative concentrations of the pollutant. The dates are coloured on a gradient, with the reds corresponding to measured concentrations approaching the air quality objectives set by regulatory bodies.
+
+### Hourly Average Plots
+
+When analyzing air pollution data, useful information can be deducted from the typical pattern of air pollution variations throughout the course of a day. An hourly average plot graphs the average concentration of a monitored pollutant at each hour of the day. Variations in the pollutant’s concentration can be used to interpret its source(s). It is important to note that each point on the daily average plot represents an average across all days for the specified hour. For example, the point at 6AM would represent the average concentration between 5-6AM over the complete period of monitoring. Day-to-day concentration variations are represented by shaded regions above or below the data point, where more day-to-day variability will be represented with larger shaded regions.
+
+### Units of Measurement
+Air pollutant concentrations are reported here with three units: 
+
+1. **Part per billion (ppb)**: This is the volume fraction of the air pollutant in the air. Think of this the same way you would think of a "percent". One percent as a fraction is 1/100 = 0.01. One part per billion (ppb) is 1/1,000,000,000 = $1\times10^{-9}$. So if a pollutant concentration is 25 ppb, then that means there is $25\times10^{-9}$ m$^{3}$ of the pollutant in one cubic metre of air. We use this unit to report concentrations of nitrogen oxides (NO~x~), and ozone (O~3~).
+
+2. **Part per million (ppm)**: This is the volume fraction of the air pollutant in the air. Think of this the same way you would think of a "percent". One percent as a fraction is 1/100 = 0.01. One part per million (ppm) is 1/1,000,000 = $1\times10^{-6}$. So if a pollutant concentration is 25 ppm, then that means there is $25\times10^{-6}$ m$^{3}$ of the pollutant in one cubic metre of air. We use this unit to report concentrations of carbon monoxide (CO) and carbon dioxide (CO~2~).
+
+3. **Micrograms per cubic metre (µg/m$^{3}$)**: This is a mass fraction and is used for measuring the mass of particulate matter in the air. One microgram is equivalent to $1\times10^{-6}$ grams. So if a pollutant concentration is 25 µg/m$^{3}$, then that means there is $25\times10^{-6}$ g of the pollutant in one cubic metre of air. We use this unit to report concentrations of PM~2.5~ (Particles with a diameter less than 2.5 microns).
+
+## AQHI Background
+
+### How is the AQHI calculated?
+
+In British Columbia, the AQHI is calculated concurrently in two ways, and the highest of the two values is
+reported:
+
+1. A calculation based on the relative risks of a combination of common air pollutants that is known to
+harm human health:
+    a. Ozone (O~3~) at ground level,
+    b. Particulate Matter (PM~2.5~) and
+    c. Nitrogen Dioxide (NO~2~).
+2. Particulate Matter (PM~2.5~) concentration alone
+
+### What is the scale for the AQHI?
+
+The AQHI is measured on a scale ranging from 1-10+. The AQHI index values are grouped into health risk
+categories as shown below. These categories help you to easily and quickly identify your level of risk.
+
+* 1-3 Low health
+* 4-6 Moderate health risk
+* 7-10 High health risk
+* 10 + Very high health risk
