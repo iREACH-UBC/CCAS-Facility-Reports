@@ -1,5 +1,5 @@
 ---
-title: "West Vancouver Memorial Library - September Outdoor and Indoor AQ Data\\vspace{2pt}"
+title: "Lynn Valley Library - September Outdoor and Indoor AQ Data\\vspace{2pt}"
 subtitle: "UBC Community Clean Air Spaces (CCAS) Research Project\\vspace{-0pt}"
 date: "`r Sys.Date()`"
 font_size: 14pt
@@ -68,6 +68,7 @@ table_nums <- captioner(prefix = "Table")
 month_char <- "September"
 month_int <- match(month_char, month.name) # Keep as is
 year <- 2025
+report_photo <- "facility_photos/LynnValley_Photo.png"
 ```
 
 ```{r Data Loading Functions, include = FALSE, message = FALSE, warning = FALSE}
@@ -89,8 +90,8 @@ remove_duplicate_times <- function(dataset) {
 
 ```{r Load and Subset Data, include = FALSE, message = FALSE, warning = FALSE}
 # Load data
-outdoor_data <- read.csv("outdoor_data_processed/September2025/2021.csv")
-indoor_data <- read.csv("indoor_data_processed/September2025/2020_pred_2025_09_01.csv")
+outdoor_data <- read.csv("outdoor_data_processed/September2025/MOD-00623.csv")
+indoor_data <- read.csv("indoor_data_processed/September2025/MOD-00613_pred_2025_09_01.csv")
 
 data_list <- list(outdoor_data, indoor_data)
 
@@ -123,7 +124,7 @@ for (i in seq_along(data_list)) {
   # Convert indoor data to local time
   # THIS DATA IS 14 HRS BACK, NOT IN UTC
   if (i == 2) {
-    data_list[[i]]$date <- data_list[[i]]$date - 14 * 3600
+    data_list[[i]]$date <- data_list[[i]]$date - 7 * 3600
   }
 }
 
@@ -483,7 +484,7 @@ If you have questions, please email Prof. Naomi Zimmerman, Caroline Webber or Hu
 
 
 \begin{center}
-\includegraphics[height=3.1in, keepaspectratio]{facility_photos/WV_Library_Photo.png}
+\includegraphics[height=3.1in, keepaspectratio]{`r report_photo`}
 \end{center}
 
 \newpage
@@ -503,7 +504,7 @@ Based on data collected at your facility, we calculated the indoor and outdoor A
 
 ## Calendar plots
 
-```{r Outdoor AQHI calendar plot , echo = FALSE, fig.show="hold", out.width="50%"}
+```{r Outdoor AQHI calendar plot , echo = FALSE, fig.show="hold", out.width="50%", fig.height = 6}
 make_aqhi_calendar_plot(
   dataset = outdoor_data_24hr_avg,
   dataset_col_name = "AQHI",
@@ -564,7 +565,7 @@ invisible(table_nums(name = "no2_table", caption = sprintf(
 \newpage
 
 ## Calendar plots
-```{r NO2 calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%"}
+```{r NO2 calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%", fig.height = 6}
 make_pollutant_calendar_plot(
   dataset = outdoor_data,
   dataset_col_name = "NO2",
@@ -586,7 +587,7 @@ make_pollutant_calendar_plot(
 ```
 
 ## Hourly average plots
-```{r NO2 diurnal plots, fig.height=2.9, echo=FALSE}
+```{r NO2 diurnal plots, fig.height=4, echo=FALSE}
 plot_indoor_outdoor_diurnals(
   diurnal_list = no2_diurnals,
   plot_title = expression(
@@ -635,7 +636,7 @@ get_pollutant_table(
 \newpage
 
 ## Calendar plots
-```{r PM2.5 calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%"}
+```{r PM2.5 calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%", fig.height = 6}
 make_pollutant_calendar_plot(
   dataset = outdoor_data,
   dataset_col_name = "PM2_5",
@@ -659,7 +660,7 @@ make_pollutant_calendar_plot(
 ```
 
 ## Hourly average plots
-```{r PM2.5 diurnal plots, fig.height=3, echo=FALSE}
+```{r PM2.5 diurnal plots, fig.height=4, echo=FALSE}
 plot_indoor_outdoor_diurnals(
   diurnal_list = pm2_5_diurnals,
   plot_title = expression(
@@ -705,7 +706,7 @@ get_pollutant_table(
 \newpage
 
 ## Calendar plots
-```{r CO calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%"}
+```{r CO calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%", fig.height = 6}
 make_pollutant_calendar_plot(
   dataset = outdoor_data,
   dataset_col_name = "CO",
@@ -727,7 +728,7 @@ make_pollutant_calendar_plot(
 ```
 
 ## Hourly average plots
-```{r CO diurnal plots, fig.height=3, echo=FALSE}
+```{r CO diurnal plots, fig.height=4, echo=FALSE}
 plot_indoor_outdoor_diurnals(
   diurnal_list = co_diurnals,
   plot_title = "Hourly Averages of Outdoor and Indoor CO"
@@ -775,7 +776,7 @@ get_pollutant_table(
 \newpage
 
 ## Calendar plot
-```{r O3 calendar plot outdoors, echo = FALSE, out.width="50%", fig.align = "center"}
+```{r O3 calendar plot outdoors, echo = FALSE, out.width="50%", fig.align = "center", fig.height = 6}
 make_pollutant_calendar_plot(
   dataset = outdoor_data,
   dataset_col_name = "O3",
@@ -788,12 +789,12 @@ make_pollutant_calendar_plot(
 ```
 
 ## Hourly average plot
-```{r diurnal_O3_outdoors, fig.height=3, echo=FALSE}
+```{r diurnal_O3_outdoors, fig.height=4, echo=FALSE}
 plot(o3_diurnals$outdoor_plot)
 grid.text(
   expression(paste("Hourly Average of Outdoor ", O[3])),
-  y = unit(0.9, "npc"),  # move up/down (1 = top, 0 = bottom)
-  gp = gpar(cex = 0.92, fontface = "plain")
+  y = unit(0.94, "npc"),  # move up/down (1 = top, 0 = bottom)
+  gp = gpar(cex = 0.97, fontface = "plain")
 )
 ```
 \newpage
@@ -837,7 +838,7 @@ get_pollutant_table(
 \newpage
 
 ## Calendar plots
-```{r CO2 calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%"}
+```{r CO2 calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%", fig.height = 6}
 make_pollutant_calendar_plot(
   dataset = outdoor_data,
   dataset_col_name = "CO2",
@@ -859,7 +860,7 @@ make_pollutant_calendar_plot(
 ```
 
 ## Hourly average plots
-```{r CO2 diurnal plots, fig.height=3, echo=FALSE}
+```{r CO2 diurnal plots, fig.height=4, echo=FALSE}
 plot_indoor_outdoor_diurnals(
   diurnal_list = co2_diurnals,
   plot_title = expression(
@@ -922,7 +923,7 @@ We use this unit to report concentrations of carbon monoxide (CO) and carbon dio
 
 3. **Micrograms per cubic metre (µg/m$^{3}$)**:
 This unit measures the density of particles in the air. One microgram equals $1\times10^{-6}$ grams.
-So, a concentration of 25 µg/m$^{3} means there are $25\times10^{-6}$ grams of the pollutant in one cubic meter of air.
+So, a concentration of 25 µg/m$^{3}$ means there are $25\times10^{-6}$ grams of the pollutant in one cubic meter of air.
 We use this unit to report the concentration of PM~2.5~ (particles smaller than 2.5 microns in diameter).
 
 ## AQHI Background

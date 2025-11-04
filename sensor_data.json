@@ -5,7 +5,8 @@
         "indoor_data_start_date": "2025-09-01",
         "indoor_data_end_date": "2025-09-30",
         "outdoor_data_start_date": "2025-09-01",
-        "outdoor_data_end_date": "2025-09-30"
+        "outdoor_data_end_date": "2025-09-30",
+        "photo_file_name": "WV_Library_Photo.png"
     },
     "Gillies_Bay_Public_Library": {
         "outdoor_sensor_ID": 2040,
@@ -13,23 +14,17 @@
         "indoor_data_start_date": "2025-09-01",
         "indoor_data_end_date": "2025-09-30",
         "outdoor_data_start_date": "2025-09-01",
-        "outdoor_data_end_date": "2025-09-30"
+        "outdoor_data_end_date": "2025-09-30",
+        "photo_file_name": "GilliesBay_Photo.png"
     },
-    "Powell_River": {
+    "qathet_District": {
         "outdoor_sensor_ID": 2022,
         "indoor_sensor_ID": 2037,
         "indoor_data_start_date": "2025-09-01",
         "indoor_data_end_date": "2025-09-30",
         "outdoor_data_start_date": "2025-09-01",
-        "outdoor_data_end_date": "2025-09-30"
-    },
-    "Lions_Gate_Rec_Centre": {
-        "outdoor_sensor_ID": "MOD-00632",
-        "indoor_sensor_ID": "MOD-00629",
-        "indoor_data_start_date": "2025-09-01",
-        "indoor_data_end_date": "2025-09-30",
-        "outdoor_data_start_date": "2025-09-01",
-        "outdoor_data_end_date": "2025-09-30"
+        "outdoor_data_end_date": "2025-09-30",
+        "photo_file_name": "PowellRiver_Photo.png"
     },
     "Chief_Joe_Mathias_Centre": {
         "outdoor_sensor_ID": 2024,
@@ -37,7 +32,8 @@
         "indoor_data_start_date": "2025-09-01",
         "indoor_data_end_date": "2025-09-30",
         "outdoor_data_start_date": "2025-09-01",
-        "outdoor_data_end_date": "2025-09-30"
+        "outdoor_data_end_date": "2025-09-30",
+        "photo_file_name": "ChiefJoe_Photo.png"
     },
     "Squamish_Nation_Totem_Hall": {
         "outdoor_sensor_ID": 2032,
@@ -45,15 +41,8 @@
         "indoor_data_start_date": "2025-09-01",
         "indoor_data_end_date": "2025-09-30",
         "outdoor_data_start_date": "2025-09-01",
-        "outdoor_data_end_date": "2025-09-30"
-    },
-    "Pemberton_Community_Centre": {
-        "outdoor_sensor_ID": "MOD-00616",
-        "indoor_sensor_ID": "MOD-00614",
-        "indoor_data_start_date": "2025-09-01",
-        "indoor_data_end_date": "2025-09-30",
-        "outdoor_data_start_date": "2025-09-01",
-        "outdoor_data_end_date": "2025-09-30"
+        "outdoor_data_end_date": "2025-09-30",
+        "photo_file_name": "SquamishNationTotemHall_Photo.png"
     },
     "Whistler_Public_Library": {
         "outdoor_sensor_ID": 2043,
@@ -61,7 +50,8 @@
         "indoor_data_start_date": "2025-09-01",
         "indoor_data_end_date": "2025-09-30",
         "outdoor_data_start_date": "2025-09-01",
-        "outdoor_data_end_date": "2025-09-30"
+        "outdoor_data_end_date": "2025-09-30",
+        "photo_file_name": "Whistler_Photo.png"
     },
     "Bowen_Island_Public_Library": {
         "outdoor_sensor_ID": 2030,
@@ -69,15 +59,35 @@
         "indoor_data_start_date": "2025-09-01",
         "indoor_data_end_date": "2025-09-30",
         "outdoor_data_start_date": "2025-09-01",
-        "outdoor_data_end_date": "2025-09-30"
+        "outdoor_data_end_date": "2025-09-30",
+        "photo_file_name": "BowenIsland_Library_Photo.png"
     },
-    "Bowen_Island_Recreation_Centre": {
+    "Bowen_Island_Community_Centre": {
         "outdoor_sensor_ID": 2030,
         "indoor_sensor_ID": 2029,
         "indoor_data_start_date": "2025-09-01",
         "indoor_data_end_date": "2025-09-30",
         "outdoor_data_start_date": "2025-09-01",
-        "outdoor_data_end_date": "2025-09-30"
+        "outdoor_data_end_date": "2025-09-30",
+        "photo_file_name": "BowenIsland_CommunityCentre_Photo.png"
+    },
+    "Lions_Gate_Rec_Centre": {
+        "outdoor_sensor_ID": "MOD-00632",
+        "indoor_sensor_ID": "MOD-00629",
+        "indoor_data_start_date": "2025-09-01",
+        "indoor_data_end_date": "2025-09-30",
+        "outdoor_data_start_date": "2025-09-01",
+        "outdoor_data_end_date": "2025-09-30",
+        "photo_file_name": "LionsGate_Photo.png"
+    },
+    "Pemberton_Community_Centre": {
+        "outdoor_sensor_ID": "MOD-00616",
+        "indoor_sensor_ID": "MOD-00614",
+        "indoor_data_start_date": "2025-09-01",
+        "indoor_data_end_date": "2025-09-30",
+        "outdoor_data_start_date": "2025-09-01",
+        "outdoor_data_end_date": "2025-09-30",
+        "photo_file_name": "Pemberton_Photo.png"
     },
     "Evelyne_Saller_Centre": {
         "outdoor_sensor_ID": "MOD-00625",
@@ -85,7 +95,8 @@
         "indoor_data_start_date": "2025-09-03",
         "indoor_data_end_date": "2025-09-30",
         "outdoor_data_start_date": "2025-09-03",
-        "outdoor_data_end_date": "2025-09-30"
+        "outdoor_data_end_date": "2025-09-30",
+        "photo_file_name": "EvelyneSaller_Photo.png"
     },
     "Capilano_Library": {
         "outdoor_sensor_ID": "MOD-00631",
@@ -93,7 +104,8 @@
         "indoor_data_start_date": "2025-09-17",
         "indoor_data_end_date": "2025-09-30",
         "outdoor_data_start_date": "2025-09-17",
-        "outdoor_data_end_date": "2025-09-30"
+        "outdoor_data_end_date": "2025-09-30",
+        "photo_file_name": "Capilano_Photo.png"
     },
     "Lynn_Valley_Library": {
         "outdoor_sensor_ID": "MOD-00623",
@@ -101,8 +113,9 @@
         "indoor_data_start_date": "2025-09-19",
         "indoor_data_end_date": "2025-09-30",
         "outdoor_data_start_date": "2025-09-19",
-        "outdoor_data_end_date": "2025-09-30"
-    },
+        "outdoor_data_end_date": "2025-09-30",
+        "photo_file_name": "LynnValley_Photo.png"
+    },    
     "includes_time_change": false,
     "year": 2025,
     "month": "September"
