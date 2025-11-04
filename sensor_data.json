@@ -15,16 +15,8 @@
         "outdoor_data_start_date": "2025-09-01",
         "outdoor_data_end_date": "2025-09-30"
     },
-    "qathet_District_Operations_Facility": {
+    "Powell_River": {
         "outdoor_sensor_ID": 2022,
-        "indoor_sensor_ID": null,
-        "indoor_data_start_date": "2025-09-01",
-        "indoor_data_end_date": "2025-09-30",
-        "outdoor_data_start_date": "2025-09-01",
-        "outdoor_data_end_date": "2025-09-30"
-    },
-    "Powell_River_Public_Library": {
-        "outdoor_sensor_ID": null,
         "indoor_sensor_ID": 2037,
         "indoor_data_start_date": "2025-09-01",
         "indoor_data_end_date": "2025-09-30",
@@ -80,7 +72,7 @@
         "outdoor_data_end_date": "2025-09-30"
     },
     "Bowen_Island_Recreation_Centre": {
-        "outdoor_sensor_ID": null,
+        "outdoor_sensor_ID": 2030,
         "indoor_sensor_ID": 2029,
         "indoor_data_start_date": "2025-09-01",
         "indoor_data_end_date": "2025-09-30",
