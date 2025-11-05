@@ -22,12 +22,11 @@ get_file_urls <- function(start_date, stop_date, sensor_id) {
   sensor_id, sensor_id, start_dates_char, end_dates_char))
 }
 
-# TODO: refine to account for time change
+# Processes outdoor files from github
+# TODO: edit if you take indoor files from github
+# TODO: modify to make more efficient- read_csv?
 # Gets data without date overlaps
 # Removes columns that aren't pollutants or AQHI
-# TODO: select columns and process after combining to make more efficient
-# TODO: add parameter for file destination instead of hardcoding
-# TODO: make a folder with month
 create_processed_csv <- function(
   raw_git_urls, data_includes_time_change,
   month_folder, is_outdoor_data
@@ -61,7 +60,7 @@ create_processed_csv <- function(
   # Reformat date field
   colnames(pollutant_data)[[1]] <- "date" # timeAverage requires "date" field
   pollutant_data$date <- as.POSIXct(
-    pollutant_data$date, format = "%Y-%m-%d %H:%M:%S", tz = timezone
+    pollutant_data$date, format = "%Y-%m-%d %H:%M", tz = timezone
   )
   # Reformat PM2.5
   names(pollutant_data)[names(pollutant_data) == "PM2.5"] <- "PM2_5"
