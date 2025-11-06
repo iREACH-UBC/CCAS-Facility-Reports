@@ -1,5 +1,12 @@
 ---
-title: "Capilano Library - September Outdoor and Indoor AQ Data\\vspace{2pt}"
+params:
+  year: NULL
+  month: NULL
+  location: NULL
+  facility_photo_dir: NULL
+  outdoor_file_dir: NULL
+  indoor_file_dir: NULL
+title: "`r params$location` - `r params$month` Outdoor and Indoor AQ Data\\vspace{2pt}"
 subtitle: "UBC Community Clean Air Spaces (CCAS) Research Project\\vspace{-0pt}"
 date: "`r Sys.Date()`"
 font_size: 14pt
@@ -65,10 +72,10 @@ table_nums <- captioner(prefix = "Table")
 ```
 
 ```{r Adjustable Parameters, include = FALSE, message = FALSE, warning = FALSE}
-month_char <- "September"
+month_char <- params$month
 month_int <- match(month_char, month.name) # Keep as is
-year <- 2025
-report_photo <- "facility_photos/Capilano_Photo.png"
+year <- params$year
+report_photo <- params$facility_photo_dir
 ```
 
 ```{r Data Loading Functions, include = FALSE, message = FALSE, warning = FALSE}
@@ -90,10 +97,10 @@ remove_duplicate_times <- function(dataset) {
 
 ```{r Load and Subset Data, include = FALSE, message = FALSE, warning = FALSE}
 # Load data
-outdoor_data <- read.csv("outdoor_data_processed/September2025/MOD-00631.csv")
-indoor_data <- read.csv("indoor_data_processed/September2025/MOD-00618_pred_2025_09_01.csv")
+outdoor_data <- read.csv(params$outdoor_file_dir)
+indoor_data <- read.csv(params$indoor_file_dir)
 
-# TEST
+
 # AQHI helper for indoor data
 apply_aqhi_ceiling <- function(aqhi_vec, pm25_1h_vec)
   pmax(round(aqhi_vec), ceiling(pm25_1h_vec / 10)) |> as.integer()
@@ -110,13 +117,18 @@ aqhi_val <- (10 / 10.4) * 100 * (
     (exp(0.000487 * PM2_5_3h) - 1)
 )
 indoor_data$AQHI <- mapply(apply_aqhi_ceiling, aqhi_val, PM2_5_1h)
-# END TEST
+
 
 data_list <- list(outdoor_data, indoor_data)
 
 for (i in seq_along(data_list)) {
-  # Remove rows with NAs
-  data_list[[i]] <- na.omit(data_list[[i]])
+  # # Remove rows with NAs
+  # data_list[[i]] <- na.omit(data_list[[i]])
+
+  # # Remove pollutant rows w NA (keep AQHI, helps w date accuracy)
+  # na_positions <- which(is.na(indoor_data[1:7]), arr.ind = TRUE)
+  # na_rows <- unique(na_positions[, "row"])
+  # indoor_data <- indoor_data[-na_rows, ]
 
   # Set negatives to zero
   data_list[[i]][data_list[[i]] < 0] <- 0
@@ -143,29 +155,29 @@ for (i in seq_along(data_list)) {
   # Convert indoor data to local time
   # THIS DATA IS 14 HRS BACK, NOT IN UTC
   if (i == 2) {
-    data_list[[i]]$date <- data_list[[i]]$date - 7 * 3600
+    data_list[[i]]$date <- data_list[[i]]$date - 14 * 3600
   }
 }
 
 outdoor_data <- data_list[[1]]
 indoor_data <- data_list[[2]]
 
-# # AQHI helper for indoor data
-# apply_aqhi_ceiling <- function(aqhi_vec, pm25_1h_vec)
-#   pmax(round(aqhi_vec), ceiling(pm25_1h_vec / 10)) |> as.integer()
+# AQHI helper for indoor data
+apply_aqhi_ceiling <- function(aqhi_vec, pm25_1h_vec)
+  pmax(round(aqhi_vec), ceiling(pm25_1h_vec / 10)) |> as.integer()
 
-# # Add AQHI column to indoor data
-# NO2_3h   <- rollapply(indoor_data$NO2,   12, mean, fill = NA, align = "right", na.rm = TRUE)
-# O3_3h    <- rollapply(indoor_data$O3,    12, mean, fill = NA, align = "right", na.rm = TRUE)
-# PM2_5_3h <- rollapply(indoor_data$PM2_5, 12, mean, fill = NA, align = "right", na.rm = TRUE)
-# PM2_5_1h <- rollapply(indoor_data$PM2_5,  4, mean, fill = NA, align = "right", na.rm = TRUE)
+# Add AQHI column to indoor data
+NO2_3h   <- rollapply(indoor_data$NO2,   12, mean, fill = NA, align = "right", na.rm = TRUE)
+O3_3h    <- rollapply(indoor_data$O3,    12, mean, fill = NA, align = "right", na.rm = TRUE)
+PM2_5_3h <- rollapply(indoor_data$PM2_5, 12, mean, fill = NA, align = "right", na.rm = TRUE)
+PM2_5_1h <- rollapply(indoor_data$PM2_5,  4, mean, fill = NA, align = "right", na.rm = TRUE)
 
-# aqhi_val <- (10 / 10.4) * 100 * (
-#   (exp(0.000871 * NO2_3h) - 1) +
-#     (exp(0.000537 * O3_3h) - 1) +
-#     (exp(0.000487 * PM2_5_3h) - 1)
-# )
-# indoor_data$AQHI <- mapply(apply_aqhi_ceiling, aqhi_val, PM2_5_1h)
+aqhi_val <- (10 / 10.4) * 100 * (
+  (exp(0.000871 * NO2_3h) - 1) +
+    (exp(0.000537 * O3_3h) - 1) +
+    (exp(0.000487 * PM2_5_3h) - 1)
+)
+indoor_data$AQHI <- mapply(apply_aqhi_ceiling, aqhi_val, PM2_5_1h)
 
 # Define pollutants and their units
 pollutants <- c("NO2", "NO", "CO2", "O3", "CO", "PM2_5")
