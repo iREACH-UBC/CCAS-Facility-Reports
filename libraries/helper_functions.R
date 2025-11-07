@@ -80,3 +80,21 @@ create_processed_csv <- function(
     row.names = FALSE, quote = FALSE
   )
 }
+
+extract_sensor_data_from_json <- function(json_file_dir) {
+  sensor_metadata <- jsonlite::fromJSON(json_file_dir)
+  includes_time_change <- sensor_metadata$includes_time_change
+  month_char <- sensor_metadata$month
+  year_int <- sensor_metadata$year
+
+  fields_to_remove <- c("includes_time_change", "month", "year")
+  sensor_metadata <- sensor_metadata[setdiff(
+    names(sensor_metadata), fields_to_remove
+  )]
+  return(list(
+    sensor_data = sensor_metadata,
+    year_int = year_int,
+    month_char = month_char,
+    includes_time_change = includes_time_change
+  ))
+}

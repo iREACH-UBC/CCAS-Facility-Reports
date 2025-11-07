@@ -71,7 +71,7 @@
         "outdoor_data_end_date": "2025-09-30",
         "photo_file_name": "BowenIsland_CommunityCentre_Photo.png"
     },
-    "Lions_Gate_Rec_Centre": {
+    "Lions_Gate_Recreation_Centre": {
         "outdoor_sensor_ID": "MOD-00632",
         "indoor_sensor_ID": "MOD-00629",
         "indoor_data_start_date": "2025-09-01",

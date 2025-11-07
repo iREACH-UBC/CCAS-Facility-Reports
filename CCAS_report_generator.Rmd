@@ -3,6 +3,7 @@ params:
   year: NULL
   month: NULL
   location: NULL
+  includes_time_change: NULL
   facility_photo_dir: NULL
   outdoor_file_dir: NULL
   indoor_file_dir: NULL
@@ -122,14 +123,6 @@ indoor_data$AQHI <- mapply(apply_aqhi_ceiling, aqhi_val, PM2_5_1h)
 data_list <- list(outdoor_data, indoor_data)
 
 for (i in seq_along(data_list)) {
-  # # Remove rows with NAs
-  # data_list[[i]] <- na.omit(data_list[[i]])
-
-  # # Remove pollutant rows w NA (keep AQHI, helps w date accuracy)
-  # na_positions <- which(is.na(indoor_data[1:7]), arr.ind = TRUE)
-  # na_rows <- unique(na_positions[, "row"])
-  # indoor_data <- indoor_data[-na_rows, ]
-
   # Set negatives to zero
   data_list[[i]][data_list[[i]] < 0] <- 0
 
@@ -148,6 +141,7 @@ for (i in seq_along(data_list)) {
   #   # tz = "US/Pacific"
   # )
 
+  # Takes timezone of input data, UTC by default
   data_list[[i]]$date <- as.POSIXct(
     data_list[[i]]$date,
     format = "%Y-%m-%d %H:%M"
@@ -155,29 +149,12 @@ for (i in seq_along(data_list)) {
   # Convert indoor data to local time
   # THIS DATA IS 14 HRS BACK, NOT IN UTC
   if (i == 2) {
-    data_list[[i]]$date <- data_list[[i]]$date - 14 * 3600
+    data_list[[i]]$date <- data_list[[i]]$date - 7 * 3600
   }
 }
 
 outdoor_data <- data_list[[1]]
 indoor_data <- data_list[[2]]
-
-# AQHI helper for indoor data
-apply_aqhi_ceiling <- function(aqhi_vec, pm25_1h_vec)
-  pmax(round(aqhi_vec), ceiling(pm25_1h_vec / 10)) |> as.integer()
-
-# Add AQHI column to indoor data
-NO2_3h   <- rollapply(indoor_data$NO2,   12, mean, fill = NA, align = "right", na.rm = TRUE)
-O3_3h    <- rollapply(indoor_data$O3,    12, mean, fill = NA, align = "right", na.rm = TRUE)
-PM2_5_3h <- rollapply(indoor_data$PM2_5, 12, mean, fill = NA, align = "right", na.rm = TRUE)
-PM2_5_1h <- rollapply(indoor_data$PM2_5,  4, mean, fill = NA, align = "right", na.rm = TRUE)
-
-aqhi_val <- (10 / 10.4) * 100 * (
-  (exp(0.000871 * NO2_3h) - 1) +
-    (exp(0.000537 * O3_3h) - 1) +
-    (exp(0.000487 * PM2_5_3h) - 1)
-)
-indoor_data$AQHI <- mapply(apply_aqhi_ceiling, aqhi_val, PM2_5_1h)
 
 # Define pollutants and their units
 pollutants <- c("NO2", "NO", "CO2", "O3", "CO", "PM2_5")
