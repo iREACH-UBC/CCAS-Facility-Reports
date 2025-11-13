@@ -16,27 +16,55 @@ get_file_urls <- function(start_date, stop_date, sensor_id) {
   end_dates_char <- as.character(gsub("-", "_", end_dates))
   start_dates_char <- as.character(gsub("-", "_", start_dates))
 
-  return(sprintf(paste0(
-  "https://raw.githubusercontent.com/iREACH-UBC/CCAS_Dashboard/refs/heads/",
+  sprintf(paste0(
+    "https://raw.githubusercontent.com/iREACH-UBC/CCAS_Dashboard/refs/heads/",
   "main/calibrated_data/%s/%s_calibrated_%s_to_%s.csv"),
-  sensor_id, sensor_id, start_dates_char, end_dates_char))
+  sensor_id, sensor_id, start_dates_char, end_dates_char)
+}
+
+# Year and sensor id can be char or int, month_num must be int
+get_month_start_end_dates <- function(month_int, year) {
+  month_num_char <- as.character(month_int)
+  if (month_int - 10 < 0) {
+    month_num_char <- sprintf("0%s", month_int)
+  }
+  start_date <- sprintf("%s-%s-01", year, month_num_char)
+  month_abbrev <- month.abb[month_int]
+  days_in_month <- lubridate::days_in_month(
+    lubridate::ymd(start_date)
+  )[[month_abbrev]]
+  end_date <- sprintf("%s-%s-%s", year, month_num_char, days_in_month)
+
+  list("month_start_date" = start_date, "month_end_date" = end_date)
 }
 
 # Generates unprocessed df from raw git urls
-# Df has repeat date ranges removed
-# TODO- edit so it doesn't remove data overlap during time change for RAMP
-# Look for start indices of blank AQHI entries, stop at next day
+# Df has repeat date ranges removed (except for time change overlap)
 get_df_from_calibrated_csvs <- function(raw_git_urls) {
   raw_data_df <- readr::read_csv(raw_git_urls)
-  dates_current <- raw_data_df$DATE[1:(length(raw_data_df$DATE) - 1)]
-  dates_next <- raw_data_df$DATE[2:length(raw_data_df$DATE)]
+  print(length(raw_data_df$DATE))
+  print("Read df")
+  aqhi_current <- raw_data_df$AQHI[1:(length(raw_data_df$AQHI) - 1)]
+  aqhi_next <- raw_data_df$AQHI[2:length(raw_data_df$AQHI)]
+  print("Got AQHI vectors")
 
-  repeated_dates_start_indices <- c(1, (which(dates_current > dates_next) + 1))
-  repeated_dates_stop_indices <- which(diff(as.Date(raw_data_df$DATE)) != 0) + 1
-  repeated_dates_indices <- unlist(
-    Map(`:`, repeated_dates_start_indices, repeated_dates_stop_indices)
+  repeated_data_start_indices <- c(
+    1, ((which((is.na(aqhi_next)) & (!is.na(aqhi_current)))) + 1)
   )
-  raw_data_df[-repeated_dates_indices, ] # Implicit return
+  print(length(repeated_data_start_indices))
+  # print(raw_data_df$DATE[repeated_data_start_indices])
+  repeated_data_stop_indices <- which(diff(as.Date(raw_data_df$DATE)) != 0)
+  print(length(repeated_data_stop_indices))
+  # print(raw_data_df$DATE[repeated_data_stop_indices])
+  print("Got repeated data start and stop indices")
+
+  repeated_data_indices <- unlist(
+    Map(`:`, repeated_data_start_indices, repeated_data_stop_indices)
+  )
+  print(length(repeated_data_indices))
+  print("Got repeated date indices")
+
+  raw_data_df[-repeated_data_indices, ] # Implicit return
 }
 
 # TODO: Don't save to csv in function, do in application
@@ -49,13 +77,18 @@ process_calibrated_data_df <- function(
     "DATE", "CO", "NO2", "NO", "O3", "PM2.5", "CO2", "AQHI"
   )]
   # Reformat date field
+  print("Overwriting column names")
   colnames(pollutant_data)[[1]] <- "date" # timeAverage requires "date" field
+  print("Successfully overwrote column names")
   # Reformat PM2.5
   names(pollutant_data)[names(pollutant_data) == "PM2.5"] <- "PM2_5"
+  print(colnames(pollutant_data))
+  print("Renamed PM2.5")
 
   # Convert dates to local time or PST if time change
-  dates <- calibrated_dataset_df$date
+  dates <- pollutant_data$date
   if (data_includes_time_change) {
+    print("Time change detected")
     time_change_date <- as.POSIXct(get_time_change_date(
       month_int, year_int
     ), tz = "UTC")
@@ -79,10 +112,13 @@ process_calibrated_data_df <- function(
     }
     pollutant_data$date <- dates_pst
   } else {
+    print("No time change detected")
+    print(length(pollutant_data$date))
     pollutant_data$date <- lubridate::force_tz(
       pollutant_data$date, tzone = "US/Pacific"
     )
   }
+  pollutant_data #Implicit return
 }
 
 # Assumes UTC POSIX dates
@@ -201,12 +237,12 @@ extract_sensor_data_from_json <- function(json_file_dir) {
   sensor_metadata <- sensor_metadata[setdiff(
     names(sensor_metadata), fields_to_remove
   )]
-  return(list(
+  list(
     sensor_data = sensor_metadata,
     year_int = year_int,
     month_char = month_char,
     includes_time_change = includes_time_change
-  ))
+  )
 }
 
 # times <- c(
