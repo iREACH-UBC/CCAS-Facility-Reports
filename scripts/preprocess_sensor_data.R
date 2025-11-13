@@ -88,7 +88,7 @@ preprocess_sensor_data <- function(
       dir.create(report_folder)
     }
     data.table::fwrite(
-      processed_df,
+      transform(processed_df, date = format(date, tz = TODO: INSERT TIMEZONE)
       file.path(location_folder, month_folder, sprintf("%s.csv", sensor_id))
     )
     print("Saved sensor csv")

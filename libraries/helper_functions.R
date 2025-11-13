@@ -177,6 +177,7 @@ create_processed_csv <- function(
   raw_git_urls, data_includes_time_change,
   month_folder, is_outdoor_data
 ) {
+  print("New function call!")
   if (data_includes_time_change) {
     timezone <- "Pacific/Pitcairn" # Constant PST
   } else {
@@ -185,16 +186,35 @@ create_processed_csv <- function(
   truncated_df_list <- list()
 
   for (url in raw_git_urls) {
-    sensor_data <- read.csv(url)
+    csv_status <- "present"
+    sensor_data <- tryCatch(
+      read.csv(url),
+      error = function(e) {
+        message("Could not read file: ", conditionMessage(e))
+        csv_status <<- "missing"
+        return(NULL)
+      }
+    )
+    print(csv_status)
+    if (csv_status == "missing") {
+      return(NULL)
+    }
+    print("Exited the try-catch block")
     target_date_unformatted <- sub(".*to_(.*?).csv.*", "\\1", url)
     target_date <- gsub("_", "-", target_date_unformatted)
 
     # Get index of first occurrence
     first_index <- grep(target_date, sensor_data$DATE)[1]
 
-    # Get subset of nested list
-    one_day_list <- lapply(sensor_data, function(x) x[first_index:length(sensor_data$DATE)])
-    truncated_df_list[[length(truncated_df_list) + 1]] <- as.data.frame(one_day_list)
+    # Get subset of nested list if target dates found
+    if (!(is.na(first_index))) {
+      one_day_list <- lapply(
+        sensor_data, function(x) x[first_index:length(sensor_data$DATE)]
+      )
+      truncated_df_list[[
+        length(truncated_df_list) + 1
+      ]] <- as.data.frame(one_day_list)
+    }
   }
   sensor_df <- bind_rows(truncated_df_list)
 
@@ -220,11 +240,17 @@ create_processed_csv <- function(
   } else {
     location_folder <- "indoor_data_processed"
   }
+  data_folder <- file.path(location_folder, month_folder)
+  if (!(dir.exists(data_folder))) {
+      dir.create(data_folder)
+    }
+
   write.csv(
     pollutant_data,
     file.path(location_folder, month_folder, sprintf("%s.csv", sensor_id)),
     row.names = FALSE, quote = FALSE
   )
+  return("Success!")
 }
 
 extract_sensor_data_from_json <- function(json_file_dir) {
@@ -263,4 +289,23 @@ extract_sensor_data_from_json <- function(json_file_dir) {
 #   "2025-11-02 02:30:00",
 #   "2025-11-02 02:45:00",
 #   "2025-11-02 03:00:00"
+# )
+# times <- c(
+#   "2025-11-03 00:00:00",
+#   "2025-11-03 00:15:00",
+#   "2025-11-03 00:30:00",
+#   "2025-11-03 00:45:00",
+#   "2025-11-03 01:00:00",
+#   "2025-11-03 01:15:00",
+#   "2025-11-03 01:30:00",
+#   "2025-11-03 01:45:00",
+#   "2025-11-03 01:00:00",
+#   "2025-11-03 01:15:00",
+#   "2025-11-03 01:30:00",
+#   "2025-11-03 01:45:00",
+#   "2025-11-03 02:00:00",
+#   "2025-11-03 02:15:00",
+#   "2025-11-03 02:30:00",
+#   "2025-11-03 02:45:00",
+#   "2025-11-03 03:00:00"
 # )
