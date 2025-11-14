@@ -73,6 +73,7 @@ table_nums <- captioner(prefix = "Table")
 ```
 
 ```{r Adjustable Parameters, include = FALSE, message = FALSE, warning = FALSE}
+print(params)
 month_char <- params$month
 month_int <- match(month_char, month.name) # Keep as is
 year <- params$year
@@ -80,6 +81,9 @@ report_photo <- params$facility_photo_dir
 ```
 
 ```{r Data Loading Functions, include = FALSE, message = FALSE, warning = FALSE}
+# Not accurate for time change, assumes duplicate dates occur one after the other
+# And I don't want to remove time change duplicates
+# TODO: modify to not remove time change duplicate times
 remove_duplicate_times <- function(dataset) {
   duplicate_indices <- which(duplicated(dataset$date))
 
@@ -94,39 +98,44 @@ remove_duplicate_times <- function(dataset) {
   }
   dataset
 }
+
+get_aqhi_column <- function(dataset){
+  # AQHI helper for indoor data
+  apply_aqhi_ceiling <- function(aqhi_vec, pm25_1h_vec) {
+    pmax(round(aqhi_vec), ceiling(pm25_1h_vec / 10)) |> as.integer()
+  }
+
+  # Add AQHI column to indoor data
+  NO2_3h   <- rollapply(dataset$NO2,   12, mean, fill = NA, align = "right", na.rm = TRUE)
+  O3_3h    <- rollapply(dataset$O3,    12, mean, fill = NA, align = "right", na.rm = TRUE)
+  PM2_5_3h <- rollapply(dataset$PM2_5, 12, mean, fill = NA, align = "right", na.rm = TRUE)
+  PM2_5_1h <- rollapply(dataset$PM2_5,  4, mean, fill = NA, align = "right", na.rm = TRUE)
+
+  aqhi_val <- (10 / 10.4) * 100 * (
+    (exp(0.000871 * NO2_3h) - 1) +
+    (exp(0.000537 * O3_3h) - 1) +
+    (exp(0.000487 * PM2_5_3h) - 1)
+  )
+  mapply(apply_aqhi_ceiling, aqhi_val, PM2_5_1h)
+}
 ```
 
 ```{r Load and Subset Data, include = FALSE, message = FALSE, warning = FALSE}
 # Load data
 outdoor_data <- read.csv(params$outdoor_file_dir)
 indoor_data <- read.csv(params$indoor_file_dir)
-
-
-# AQHI helper for indoor data
-apply_aqhi_ceiling <- function(aqhi_vec, pm25_1h_vec)
-  pmax(round(aqhi_vec), ceiling(pm25_1h_vec / 10)) |> as.integer()
-
-# Add AQHI column to indoor data
-NO2_3h   <- rollapply(indoor_data$NO2,   12, mean, fill = NA, align = "right", na.rm = TRUE)
-O3_3h    <- rollapply(indoor_data$O3,    12, mean, fill = NA, align = "right", na.rm = TRUE)
-PM2_5_3h <- rollapply(indoor_data$PM2_5, 12, mean, fill = NA, align = "right", na.rm = TRUE)
-PM2_5_1h <- rollapply(indoor_data$PM2_5,  4, mean, fill = NA, align = "right", na.rm = TRUE)
-
-aqhi_val <- (10 / 10.4) * 100 * (
-  (exp(0.000871 * NO2_3h) - 1) +
-    (exp(0.000537 * O3_3h) - 1) +
-    (exp(0.000487 * PM2_5_3h) - 1)
-)
-indoor_data$AQHI <- mapply(apply_aqhi_ceiling, aqhi_val, PM2_5_1h)
-
-
 data_list <- list(outdoor_data, indoor_data)
 
 for (i in seq_along(data_list)) {
+  if (!("AQHI" %in% colnames(data_list[[i]]))) {
+    data_list[[i]]$AQHI <- get_aqhi_column(data_list[[i]])
+  }
+
   # Set negatives to zero
   data_list[[i]][data_list[[i]] < 0] <- 0
 
   # Average out data at duplicate times
+  # TODO: take this out for Nov
   data_list[[i]] <- remove_duplicate_times(data_list[[i]])
 
   # Ensure consistent date formatting
@@ -141,16 +150,18 @@ for (i in seq_along(data_list)) {
   #   # tz = "US/Pacific"
   # )
 
+  #TODO: change for Nov data
   # Takes timezone of input data, UTC by default
   data_list[[i]]$date <- as.POSIXct(
     data_list[[i]]$date,
-    format = "%Y-%m-%d %H:%M"
+    format = "%Y-%m-%d %H:%M",
+    tz = "US/Pacific"
   )
-  # Convert indoor data to local time
-  # THIS DATA IS 14 HRS BACK, NOT IN UTC
-  if (i == 2) {
-    data_list[[i]]$date <- data_list[[i]]$date - 7 * 3600
-  }
+  # # Convert indoor data to local time
+  # # THIS DATA IS 14 HRS BACK, NOT IN UTC
+  # if (i == 2) {
+  #   data_list[[i]]$date <- data_list[[i]]$date - 7 * 3600
+  # }
 }
 
 outdoor_data <- data_list[[1]]
@@ -486,7 +497,7 @@ These spaces use different methods to improve air quality, but we still do not k
 This project studies air quality throughout the year to better understand pollution levels and health risks.
 Data from your facility and other CCAS will help identify patterns, learn what makes some spaces more effective, and guide future improvements to air protection.
 
-This report shows your facility’s air monitoring results for September 2025.
+This report shows your facility’s air monitoring results for `r month_char` `r year`.
 See the Appendix for details on [\underline{\textcolor{blue}{instrumentation and methods}}](#study-instrumentation-and-methods), [\underline{\textcolor{blue}{report goals}}](#report-purpose), and [\underline{\textcolor{blue}{how the data are summarized}}](#how-we-are-summarizing-air-pollution-data).
 If you have questions, please email Prof. Naomi Zimmerman, Caroline Webber or Hugo Dignoes Ricart at  [[\underline{\textcolor{blue}{HelloAirQuality@mech.ubc.ca}}]](mailto:HelloAirQuality@mech.ubc.ca).
 

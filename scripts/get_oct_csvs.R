@@ -1,3 +1,4 @@
+# A script to generate October csvs. To be changed for Nov
 source("libraries/helper_functions.R")
 
 sensor_metadata <- extract_sensor_data_from_json(

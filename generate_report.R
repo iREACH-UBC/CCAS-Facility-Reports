@@ -58,9 +58,7 @@ generate_all_reports <- function(
         indoor_file_dir = file.path(
           overall_indoor_data_folder,
           sprintf("%s%s", month_char, year_int),
-          sprintf(
-            "%s_pred_%s_%s_01.csv", indoor_sensor_id, year_int, month_num
-          )
+          sprintf("%s.csv", indoor_sensor_id)
         )
       ),
       clean = TRUE
@@ -114,7 +112,8 @@ generate_one_report <- function(
 # )
 
 generate_all_reports(
-  "test_w_na", "facility_photos", "outdoor_data_processed", "indoor_data_processed"
+  "facility_reports", "facility_photos",
+  "outdoor_data_processed", "indoor_data_processed"
 )
 
 # generate_one_report(
