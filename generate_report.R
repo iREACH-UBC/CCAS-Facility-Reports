@@ -111,18 +111,28 @@ generate_one_report <- function(
 #   )
 # )
 
-generate_all_reports(
-  "facility_reports", "facility_photos",
-  "outdoor_data_processed", "indoor_data_processed"
-)
+# generate_all_reports(
+#   "facility_reports", "facility_photos",
+#   "outdoor_data_processed", "indoor_data_processed"
+# )
 
 # generate_one_report(
-#   2025, "September", FALSE, "Capilano Library",
-#   "facility_photos/Capilano_Photo.png",
-#   "outdoor_data_processed/September2025/MOD-00631.csv",
-#   "indoor_data_processed/September2025/MOD-00618_pred_2025_09_01.csv",
-#   "Capilano_NA_removed_file", NULL
+#   2025, "October", FALSE, "Squamish Nation Totem Hall",
+#   "facility_photos/SquamishNationTotemHall_Photo.png",
+#   "outdoor_data_processed/October2025/2032.csv",
+#   "indoor_data_processed/October2025/2049.csv",
+#   "Report_SquamishNationTotemHall_Oct2025",
+#   "facility_reports/October2025"
 # )
+
+generate_one_report(
+  2025, "October", FALSE, "Pemberton Community Centre",
+  "facility_photos/Pemberton_Photo.png",
+  "outdoor_data_processed/October2025/2042.csv",
+  "indoor_data_processed/October2025/2035.csv",
+  "Report_PembertonCommunityCentre_Oct2025",
+  "facility_reports/Oct2025_reports"
+)
 
 # params <- list(
 #   year = 2025,

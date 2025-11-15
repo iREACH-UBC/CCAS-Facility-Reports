@@ -71,6 +71,15 @@
         "outdoor_data_end_date": "2025-10-31",
         "photo_file_name": "BowenIsland_CommunityCentre_Photo.png"
     },
+    "Pemberton_Community_Centre": {
+        "outdoor_sensor_ID": "2042",
+        "indoor_sensor_ID": "2035",
+        "indoor_data_start_date": "2025-10-01",
+        "indoor_data_end_date": "2025-10-31",
+        "outdoor_data_start_date": "2025-10-01",
+        "outdoor_data_end_date": "2025-10-31",
+        "photo_file_name": "Pemberton_Photo.png"
+    },
     "Lions_Gate_Recreation_Centre": {
         "outdoor_sensor_ID": "MOD-00632",
         "indoor_sensor_ID": "MOD-00629",
@@ -79,15 +88,6 @@
         "outdoor_data_start_date": "2025-10-01",
         "outdoor_data_end_date": "2025-10-31",
         "photo_file_name": "LionsGate_Photo.png"
-    },
-    "Pemberton_Community_Centre": {
-        "outdoor_sensor_ID": "MOD-00616",
-        "indoor_sensor_ID": "MOD-00614",
-        "indoor_data_start_date": "2025-10-01",
-        "indoor_data_end_date": "2025-10-31",
-        "outdoor_data_start_date": "2025-10-01",
-        "outdoor_data_end_date": "2025-10-31",
-        "photo_file_name": "Pemberton_Photo.png"
     },
     "Evelyne_Saller_Centre": {
         "outdoor_sensor_ID": "MOD-00625",

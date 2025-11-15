@@ -5,34 +5,37 @@ sensor_metadata <- extract_sensor_data_from_json(
   "sensor_data.json"
 )
 sensor_data <- sensor_metadata[["sensor_data"]]
+month_char <- sensor_metadata[["month_char"]]
+month_int <- match(month_char, month.name)
+year_int <- sensor_metadata[["year_int"]]
 
-for (location in names(sensor_data)[12:length(names(sensor_data))]) {
+for (location in names(sensor_data)[9]) {
   location_data <- sensor_data[[location]]
 
-  # Use if dates differ from full month
-  outdoor_raw_urls <- get_file_urls(
-    start_date = location_data[["outdoor_data_start_date"]],
-    stop_date = location_data[["outdoor_data_end_date"]],
-    sensor_id = location_data[["outdoor_sensor_ID"]]
-  )
-  indoor_raw_urls <- get_file_urls(
-    start_date = location_data[["indoor_data_start_date"]],
-    stop_date = location_data[["indoor_data_end_date"]],
-    sensor_id = location_data[["indoor_sensor_ID"]]
-  )
-
-  # # Use if dates are full month for all sensors
-  # month_dates <- get_month_start_end_dates(month_int, year_int)
+  # # Use if dates differ from full month
   # outdoor_raw_urls <- get_file_urls(
-  #   start_date = month_dates[["month_start_date"]],
-  #   stop_date = month_dates[["month_end_date"]],
+  #   start_date = location_data[["outdoor_data_start_date"]],
+  #   stop_date = location_data[["outdoor_data_end_date"]],
   #   sensor_id = location_data[["outdoor_sensor_ID"]]
   # )
   # indoor_raw_urls <- get_file_urls(
-  #   start_date = month_dates[["month_start_date"]],
-  #   stop_date = month_datesa[["month_end_date"]],
+  #   start_date = location_data[["indoor_data_start_date"]],
+  #   stop_date = location_data[["indoor_data_end_date"]],
   #   sensor_id = location_data[["indoor_sensor_ID"]]
   # )
+
+  # Use if dates are full month for all sensors
+  month_dates <- get_month_start_end_dates(month_int, year_int)
+  outdoor_raw_urls <- get_file_urls(
+    start_date = month_dates[["month_start_date"]],
+    stop_date = month_dates[["month_end_date"]],
+    sensor_id = location_data[["outdoor_sensor_ID"]]
+  )
+  indoor_raw_urls <- get_file_urls(
+    start_date = month_dates[["month_start_date"]],
+    stop_date = month_dates[["month_end_date"]],
+    sensor_id = location_data[["indoor_sensor_ID"]]
+  )
 
   outdoor_csv_status <- create_processed_csv(
     raw_git_urls = outdoor_raw_urls,

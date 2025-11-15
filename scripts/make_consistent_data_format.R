@@ -1,9 +1,9 @@
 # A script to pre-process files with time shift and without aqhi
 # Gets files to github file format
-time_shift_hrs <- 14
+time_shift_hrs <- 0
 
 qaq_files <- c(
-  "test/2049.csv"
+  "2049_pred_2025_10_01.csv"
 )
 
 for (file in qaq_files) {
@@ -16,7 +16,7 @@ for (file in qaq_files) {
   )
 
   qaq_df$date <- as.POSIXct(qaq_df$date, format = "%Y-%m-%d %H:%M", tz = "US/Pacific")
-  qaq_df$date <- qaq_df$date - (time_shift_hrs*3600)
+  # qaq_df$date <- qaq_df$date + (time_shift_hrs*3600)
 
   last_sept_index <- tail(grep("2025-09-30", qaq_df$date), 1)
   print(last_sept_index)
@@ -29,6 +29,6 @@ for (file in qaq_files) {
   if (!(is.null(first_nov_index))) {
     qaq_df <- qaq_df[1:(first_nov_index-1), ]
   }
-  write.csv(qaq_df, file, row.names = FALSE, quote = FALSE)
+  write.csv(qaq_df, "indoor_data_processed/October2025/2049.csv", row.names = FALSE, quote = FALSE)
   print(sprintf("Wrote csv for %s", file))
 }
