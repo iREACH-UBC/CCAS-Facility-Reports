@@ -3,6 +3,7 @@ library(dplyr)
 # Start and stop inclusive
 # Dates in "YYYY-MM-DD" format
 # sensor_id can be a char (ex. "2021") or number (ex. 2021)
+# Call on one sensor id at a time to avoid unexpected urls
 get_file_urls <- function(start_date, stop_date, sensor_id) {
   start_date <- as.Date(start_date)
   stop_date <- as.Date(stop_date)
@@ -38,10 +39,10 @@ get_month_start_end_dates <- function(month_int, year) {
   list("month_start_date" = start_date, "month_end_date" = end_date)
 }
 
-# Generates unprocessed df from raw git urls
+# Generates unprocessed df from raw git urls of ALL sensors
 # Df has repeat date ranges removed (except for time change overlap)
 get_df_from_calibrated_csvs <- function(raw_git_urls) {
-  raw_data_df <- readr::read_csv(raw_git_urls)
+  raw_data_df <- readr::read_csv(raw_git_urls, show_col_types = FALSE)
   print(length(raw_data_df$DATE))
   print("Read df")
   aqhi_current <- raw_data_df$AQHI[1:(length(raw_data_df$AQHI) - 1)]
@@ -77,18 +78,14 @@ process_calibrated_data_df <- function(
     "DATE", "CO", "NO2", "NO", "O3", "PM2.5", "CO2", "AQHI"
   )]
   # Reformat date field
-  print("Overwriting column names")
   colnames(pollutant_data)[[1]] <- "date" # timeAverage requires "date" field
-  print("Successfully overwrote column names")
+
   # Reformat PM2.5
   names(pollutant_data)[names(pollutant_data) == "PM2.5"] <- "PM2_5"
-  print(colnames(pollutant_data))
-  print("Renamed PM2.5")
 
   # Convert dates to local time or PST if time change
   dates <- pollutant_data$date
   if (data_includes_time_change) {
-    print("Time change detected")
     time_change_date <- as.POSIXct(get_time_change_date(
       month_int, year_int
     ), tz = "UTC")
@@ -112,8 +109,6 @@ process_calibrated_data_df <- function(
     }
     pollutant_data$date <- dates_pst
   } else {
-    print("No time change detected")
-    print(length(pollutant_data$date))
     pollutant_data$date <- lubridate::force_tz(
       pollutant_data$date, tzone = "US/Pacific"
     )
@@ -168,6 +163,39 @@ get_time_change_date <- function(month_int, year_int) {
   }
 }
 
+get_df_from_raw_git_urls <- function(raw_git_urls) {
+  truncated_df_list <- list()
+
+  for (url in raw_git_urls) {
+    sensor_data <- tryCatch(
+      readr::read_csv(url, show_col_types = FALSE),
+      error = function(e) {
+        message("Could not read file: ", conditionMessage(e))
+        NULL
+      }
+    )
+    if (is.null(sensor_data)) {
+      return(NULL)
+    }
+    target_date_unformatted <- sub(".*to_(.*?).csv.*", "\\1", url)
+    target_date <- gsub("_", "-", target_date_unformatted)
+
+    # Get index of first occurrence
+    first_index <- grep(target_date, sensor_data$DATE)[1]
+
+    # Get subset of nested list if target dates found
+    if (!(is.na(first_index))) {
+      one_day_list <- lapply(
+        sensor_data, function(x) x[first_index:length(sensor_data$DATE)]
+      )
+      truncated_df_list[[
+        length(truncated_df_list) + 1
+      ]] <- as.data.frame(one_day_list)
+    }
+  }
+  bind_rows(truncated_df_list)
+}
+
 # Processes outdoor files from github
 # TODO: edit if you take indoor files from github
 # TODO: modify to make more efficient- read_csv?
@@ -186,20 +214,16 @@ create_processed_csv <- function(
   truncated_df_list <- list()
 
   for (url in raw_git_urls) {
-    csv_status <- "present"
     sensor_data <- tryCatch(
       read.csv(url),
       error = function(e) {
         message("Could not read file: ", conditionMessage(e))
-        csv_status <<- "missing"
-        return(NULL)
+        NULL
       }
     )
-    print(csv_status)
-    if (csv_status == "missing") {
+    if (is.null(sensor_data)) {
       return(NULL)
     }
-    print("Exited the try-catch block")
     target_date_unformatted <- sub(".*to_(.*?).csv.*", "\\1", url)
     target_date <- gsub("_", "-", target_date_unformatted)
 
@@ -270,6 +294,75 @@ extract_sensor_data_from_json <- function(json_file_dir) {
     includes_time_change = includes_time_change
   )
 }
+
+get_aqhi_column <- function(dataset){
+  # Helper function that takes higher of two AQHI calculations
+  apply_aqhi_ceiling <- function(aqhi_vec, pm25_1h_vec) {
+    pmax(round(aqhi_vec), ceiling(pm25_1h_vec / 10)) |> as.integer()
+  }
+
+  # Take pollutant and PM averages
+  NO2_3h   <- zoo::rollapply(
+    dataset$NO2,   12, mean, fill = NA, align = "right", na.rm = TRUE
+  )
+  O3_3h    <- zoo::rollapply(
+    dataset$O3,    12, mean, fill = NA, align = "right", na.rm = TRUE
+  )
+  PM2_5_3h <- zoo::rollapply(
+    dataset$PM2_5, 12, mean, fill = NA, align = "right", na.rm = TRUE
+  )
+  PM2_5_1h <- zoo::rollapply(
+    dataset$PM2_5,  4, mean, fill = NA, align = "right", na.rm = TRUE
+  )
+
+  # Calculate AQHI
+  aqhi_val <- (10 / 10.4) * 100 * (
+    (exp(0.000871 * NO2_3h) - 1) +
+    (exp(0.000537 * O3_3h) - 1) +
+    (exp(0.000487 * PM2_5_3h) - 1)
+  )
+  invisible(mapply(apply_aqhi_ceiling, aqhi_val, PM2_5_1h))
+}
+
+# Sets time to PST if includes time change, PST or PDT otherwise
+# Use only month for this or start/end day?
+# Use start/end to b more flexible, you have get month start/end function
+# Need month_int and year_int
+set_timezone_from_month <- function(
+  dates, data_includes_time_change, month_int, year_int
+) {
+  # Convert dates to local time or PST if time change
+  if (data_includes_time_change) {
+    time_change_date <- as.POSIXct(get_time_change_date(
+      month_int, year_int
+    ), tz = "UTC")
+    if (month_int == 11) {
+      end_pdt_index <- which( # RAMPs have data overlap
+        dates[1:(length(dates) - 1)] > dates[2:length(dates)]
+      )
+      if (end_pdt_index == 0) { # QAQ have no overlap, data overwritten
+        end_pdt_index <- tail(which(dates < time_change_date), 1)
+      }
+      dates <- shift_timezones_at_time_change(
+        dates, end_pdt_index, "Etc/GMT+7",
+        "Etc/GMT+8", "Etc/GMT+8"
+      )
+    } else if (month_int == 3) {
+      end_pst_index <- tail(which(dates < time_change_date), 1)
+      dates <- shift_timezones_at_time_change(
+        dates, end_pst_index, "Etc/GMT+8",
+        "Etc/GMT+7", "Etc/GMT+8"
+      )
+    }
+  } else {
+    dates <- lubridate::force_tz(
+      dates, tzone = "US/Pacific"
+    )
+  }
+  invisible(dates)
+}
+
+# set_timezone_from_date
 
 # times <- c(
 #   "2025-11-02 00:00:00",

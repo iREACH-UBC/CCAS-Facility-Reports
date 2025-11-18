@@ -62,23 +62,14 @@ preprocess_sensor_data <- function(
         sprintf("%s_sensor_ID", location_type)
       ]]
     )
-    print(length(raw_urls))
-    print("Got raw urls")
 
     unprocessed_df <- get_df_from_calibrated_csvs(raw_urls)
-    print(length(unprocessed_df$DATE))
-    print("Got df from csvs")
-    print(colnames(unprocessed_df))
-    print(names(unprocessed_df))
-    print("Got df from csvs")
     processed_df <- process_calibrated_data_df(
       data_includes_time_change,
       unprocessed_df,
       month_int,
       year_int
     )
-    print(colnames(processed_df))
-    print("Processed df successfully")
 
     month_folder <- sprintf("%s%s", month_char, year_int)
     location_folder <- sprintf("test_%s_data", location_type) #TODO: change
@@ -87,11 +78,11 @@ preprocess_sensor_data <- function(
     if (!(dir.exists(report_folder))) {
       dir.create(report_folder)
     }
+    # TODO: change tz
     data.table::fwrite(
-      transform(processed_df, date = format(date, tz = TODO: INSERT TIMEZONE)
+      transform(processed_df, date = format(date, tz = "US/Pacific")),
       file.path(location_folder, month_folder, sprintf("%s.csv", sensor_id))
     )
-    print("Saved sensor csv")
   }
 }
 
@@ -146,3 +137,59 @@ preprocess_sensor_data <- function(
 #     file.path(location_folder, month_folder, sprintf("%s.csv", sensor_id))
 #   )
 # }
+
+# Used on dfs obtained from reading from github 
+# Assumes all rows present, including AQHI
+process_sensor_data_df <- function(
+  data_includes_time_change, calibrated_dataset_df, month_int, year_int
+) {
+  pollutant_data <- calibrated_dataset_df[c(
+    "DATE", "CO", "NO2", "NO", "O3", "PM2.5", "CO2", "AQHI"
+  )]
+  # Reformat date field
+  colnames(pollutant_data)[[1]] <- "date" # timeAverage requires "date" field
+
+  # Reformat PM2.5
+  names(pollutant_data)[names(pollutant_data) == "PM2.5"] <- "PM2_5"
+
+  # Convert dates to local time or PST if time change
+  dates <- pollutant_data$date
+  if (data_includes_time_change) {
+    time_change_date <- as.POSIXct(get_time_change_date(
+      month_int, year_int
+    ), tz = "UTC")
+    if (month_int == 11) {
+      end_pdt_index <- which( # RAMPs have data overlap
+        dates[1:(length(dates) - 1)] > dates[2:length(dates)]
+      )
+      if (end_pdt_index == 0) { # QAQ have no overlap, data overwritten
+        end_pdt_index <- tail(which(dates < time_change_date), 1)
+      }
+      dates_pst <- shift_timezones_at_time_change(
+        dates, end_pdt_index, "Etc/GMT+7",
+        "Etc/GMT+8", "Etc/GMT+8"
+      )
+    } else if (month_int == 3) {
+      end_pst_index <- tail(which(dates < time_change_date), 1)
+      dates_pst <- shift_timezones_at_time_change(
+        dates, end_pst_index, "Etc/GMT+8",
+        "Etc/GMT+7", "Etc/GMT+8"
+      )
+    }
+    pollutant_data$date <- dates_pst
+  } else {
+    pollutant_data$date <- lubridate::force_tz(
+      pollutant_data$date, tzone = "US/Pacific"
+    )
+  }
+  pollutant_data #Implicit return
+}
+
+
+# Assumes that only date, pollutant and PM2.5 rows included in dataframe
+# Assumes DATE has already been renamed to date
+process_pollutant_data_df <- function(
+  pollutant_df, data_includes_time_change, month_int, year_int
+) {
+    
+}
