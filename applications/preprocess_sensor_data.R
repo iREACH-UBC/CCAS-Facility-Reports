@@ -152,44 +152,28 @@ process_sensor_data_df <- function(
   # Reformat PM2.5
   names(pollutant_data)[names(pollutant_data) == "PM2.5"] <- "PM2_5"
 
-  # Convert dates to local time or PST if time change
-  dates <- pollutant_data$date
-  if (data_includes_time_change) {
-    time_change_date <- as.POSIXct(get_time_change_date(
-      month_int, year_int
-    ), tz = "UTC")
-    if (month_int == 11) {
-      end_pdt_index <- which( # RAMPs have data overlap
-        dates[1:(length(dates) - 1)] > dates[2:length(dates)]
-      )
-      if (end_pdt_index == 0) { # QAQ have no overlap, data overwritten
-        end_pdt_index <- tail(which(dates < time_change_date), 1)
-      }
-      dates_pst <- shift_timezones_at_time_change(
-        dates, end_pdt_index, "Etc/GMT+7",
-        "Etc/GMT+8", "Etc/GMT+8"
-      )
-    } else if (month_int == 3) {
-      end_pst_index <- tail(which(dates < time_change_date), 1)
-      dates_pst <- shift_timezones_at_time_change(
-        dates, end_pst_index, "Etc/GMT+8",
-        "Etc/GMT+7", "Etc/GMT+8"
-      )
-    }
-    pollutant_data$date <- dates_pst
-  } else {
-    pollutant_data$date <- lubridate::force_tz(
-      pollutant_data$date, tzone = "US/Pacific"
-    )
-  }
+  pollutant_data$date <- set_timezone_from_month(
+    pollutant_data$date, data_includes_time_change, month_int, year_int
+  )
   pollutant_data #Implicit return
 }
 
 
 # Assumes that only date, pollutant and PM2.5 rows included in dataframe
 # Assumes DATE has already been renamed to date
-process_pollutant_data_df <- function(
-  pollutant_df, data_includes_time_change, month_int, year_int
-) {
-    
+# Assumes dates are in local time but with UTC timestamp
+process_pollutant_data_df <- function(pollutant_df) {
+  # Add time to date if missing
+  pollutant_df$date <- ifelse(
+    grepl(":", pollutant_df$date),
+    pollutant_df$date,
+    paste0(pollutant_df$date, " 00:00:00") # Remove SS if openair complains
+  )
+  # Add AQHI column
+  pollutant_df$AQHI <- get_aqhi_column(pollutant_df)
+
+  # Set dates to consistent timezone
+  pollutant_df$date <- set_timezone_from_dates(pollutant_df$date)
+
+  invisible(pollutant_df)
 }

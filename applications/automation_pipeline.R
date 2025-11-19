@@ -102,18 +102,16 @@ get_all_processed_sensor_dfs <- function(
 # sensor_df_list is either the indoor or outdoor df list
 # location_folder is either indoor or outdoor
 # Sensor location must match the name in sensor_data json
-# Start and end date in YYYY-MM-DD format
 get_one_processed_sensor_df <- function(
   sensor_df_list, sensor_csv_dir, location_folder,
-  includes_time_change, month_char, month_int, year_int,
-  sensor_location, sensor_id, start_date, end_date
+  month_char, year_int, sensor_location, sensor_id
 ) {
   # Read and process sensor data
   unprocessed_sensor_data_df <- readr::read_csv(sensor_csv_dir)
-  processed_sensor_data_df <- process_sensor_data_df(
-    includes_time_change, unprocessed_sensor_data_df, month_int, year_int
+  processed_sensor_data_df <- process_pollutant_data_df(
+    unprocessed_sensor_data_df
   )
-  
+
   sensor_df_list[[sensor_location]] <- processed_sensor_data_df
 
   # Get timezone of data

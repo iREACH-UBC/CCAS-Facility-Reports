@@ -362,7 +362,63 @@ set_timezone_from_month <- function(
   invisible(dates)
 }
 
-# set_timezone_from_date
+# Assume dates only include dates you want data for
+# Assume there is only one year in dates range
+set_timezone_from_dates <- function(
+  dates
+) {
+  nov_int <- 11
+  mar_int <- 3
+  year_int <- lubridate::year(dates[[1]])
+
+  if (nov_int %in% lubridate::month(dates)) {
+    # Get Nov time change date
+    time_change_date <- as.POSIXct(get_time_change_date(
+      nov_int, year_int
+    ), tz = "UTC")
+
+    if (
+      (dates[1] <= time_change_date) && (
+        dates[length(dates)] >= time_change_date
+      )
+    ) {
+      # Shift all times from local time with UTC timestamp to PST
+      end_pdt_index <- which( # RAMPs have data overlap
+        dates[1:(length(dates) - 1)] > dates[2:length(dates)]
+      )
+      if (end_pdt_index == 0) { # QAQ have no overlap, data overwritten
+        end_pdt_index <- tail(which(dates < time_change_date), 1)
+      }
+      dates <- shift_timezones_at_time_change(
+        dates, end_pdt_index, "Etc/GMT+7",
+        "Etc/GMT+8", "Etc/GMT+8"
+      )
+      return(dates)
+    }
+  } else if (mar_int %in% lubridate::month(dates)) {
+    # Get Mar time change date
+    time_change_date <- as.POSIXct(get_time_change_date(
+      mar_int, year_int
+    ), tz = "UTC")
+
+    if (
+      (dates[1] <= time_change_date) && (
+        dates[length(dates)] >= time_change_date
+      )
+    ) {
+      # Shift all times from local time with UTC timestamp to PST
+      end_pst_index <- tail(which(dates < time_change_date), 1)
+      dates <- shift_timezones_at_time_change(
+        dates, end_pst_index, "Etc/GMT+8",
+        "Etc/GMT+7", "Etc/GMT+8"
+      )
+      return(dates)
+    }
+  }
+  dates <- lubridate::force_tz(
+    dates, tzone = "US/Pacific"
+  )
+}
 
 # times <- c(
 #   "2025-11-02 00:00:00",
