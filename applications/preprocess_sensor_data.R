@@ -138,7 +138,7 @@ preprocess_sensor_data <- function(
 #   )
 # }
 
-# Used on dfs obtained from reading from github 
+# Used on dfs obtained from reading from github (local time)
 # Assumes all rows present, including AQHI
 process_sensor_data_df <- function(
   data_includes_time_change, calibrated_dataset_df, month_int, year_int
@@ -152,28 +152,46 @@ process_sensor_data_df <- function(
   # Reformat PM2.5
   names(pollutant_data)[names(pollutant_data) == "PM2.5"] <- "PM2_5"
 
+  # Get consistent timezone for all dates
   pollutant_data$date <- set_timezone_from_month(
-    pollutant_data$date, data_includes_time_change, month_int, year_int
+    pollutant_data$date, data_includes_time_change, month_int, year_int,
+    FALSE
   )
   pollutant_data #Implicit return
 }
 
-
 # Assumes that only date, pollutant and PM2.5 rows included in dataframe
 # Assumes DATE has already been renamed to date
 # Assumes dates are in local time but with UTC timestamp
-process_pollutant_data_df <- function(pollutant_df) {
-  # Add time to date if missing
-  pollutant_df$date <- ifelse(
-    grepl(":", pollutant_df$date),
-    pollutant_df$date,
-    paste0(pollutant_df$date, " 00:00:00") # Remove SS if openair complains
-  )
+# Start and end date in YYYY-MM-DD format
+process_pollutant_data_df <- function(
+  pollutant_df, start_date_char, end_date_char, csv_dates_in_UTC
+) {
+  # Extra processing if date is read as a character
+  if(typeof(pollutant_df$date) != "double") {
+    # Add time to date if missing
+    pollutant_df$date <- ifelse(
+      grepl(":", pollutant_df$date),
+      pollutant_df$date,
+      paste0(pollutant_df$date, " 00:00:00") # Remove SS if openair complains
+    )
+    # Convert time to POSIX w/ UTC timestamp
+    # Done to be consistent with typical read_csv output
+    pollutant_df$date <- as.POSIXct(pollutant_df$date, tz = "UTC")
+  }
   # Add AQHI column
   pollutant_df$AQHI <- get_aqhi_column(pollutant_df)
 
   # Set dates to consistent timezone
-  pollutant_df$date <- set_timezone_from_dates(pollutant_df$date)
+  pollutant_df$date <- set_timezone_from_dates(pollutant_df$date, csv_dates_in_UTC)
+
+  # Remove dates before start and after end dates
+  final_timezone <- lubridate::tz(pollutant_df$date[1])
+  start_date <- as.POSIXct(start_date_char, tz = final_timezone)
+  end_date <- as.POSIXct(end_date_char, tz = final_timezone)
+  date_after_end <- end_date + lubridate::days(1)
+  pollutant_df <- pollutant_df[-which(pollutant_df$date >= date_after_end), ]
+  pollutant_df <- pollutant_df[-which(pollutant_df$date < start_date), ]
 
   invisible(pollutant_df)
 }

@@ -41,6 +41,7 @@ get_month_start_end_dates <- function(month_int, year) {
 
 # Generates unprocessed df from raw git urls of ALL sensors
 # Df has repeat date ranges removed (except for time change overlap)
+# TO BE REMOVED
 get_df_from_calibrated_csvs <- function(raw_git_urls) {
   raw_data_df <- readr::read_csv(raw_git_urls, show_col_types = FALSE)
   print(length(raw_data_df$DATE))
@@ -116,9 +117,9 @@ process_calibrated_data_df <- function(
   pollutant_data #Implicit return
 }
 
-# Assumes UTC POSIX dates
-# Timezone b4 and after are different (ex. PST and PDT)
-# Final timezone is either the timezone b4 or after
+# Assumes POSIX dates
+# Timezone b4 and after are timezones before/after time change
+# Final timezone is the timezone you are converting dates to
 shift_timezones_at_time_change <- function(
   dates, index_b4_change, timezone_b4, timezone_after, final_timezone
 ) {
@@ -132,7 +133,8 @@ shift_timezones_at_time_change <- function(
     dates_b4 <- as.POSIXct(
       dates_b4, tz = final_timezone
     )
-  } else if (timezone_after != final_timezone) {
+  } 
+  if (timezone_after != final_timezone) {
     dates_after <- as.POSIXct(
       dates_after, tz = final_timezone
     )
@@ -201,11 +203,11 @@ get_df_from_raw_git_urls <- function(raw_git_urls) {
 # TODO: modify to make more efficient- read_csv?
 # Gets data without date overlaps
 # Removes columns that aren't pollutants or AQHI
+# Old algorithm, to be removed!!!
 create_processed_csv <- function(
   raw_git_urls, data_includes_time_change,
   month_folder, is_outdoor_data
 ) {
-  print("New function call!")
   if (data_includes_time_change) {
     timezone <- "Pacific/Pitcairn" # Constant PST
   } else {
@@ -325,99 +327,157 @@ get_aqhi_column <- function(dataset){
 }
 
 # Sets time to PST if includes time change, PST or PDT otherwise
-# Use only month for this or start/end day?
-# Use start/end to b more flexible, you have get month start/end function
 # Need month_int and year_int
+# Assumes dates are in local time unless dates_in_UTC is true
 set_timezone_from_month <- function(
-  dates, data_includes_time_change, month_int, year_int
+  dates, data_includes_time_change, month_int,
+  year_int, dates_in_UTC
 ) {
-  # Convert dates to local time or PST if time change
+  # Calculate local time change date if time change occurs
   if (data_includes_time_change) {
     time_change_date <- as.POSIXct(get_time_change_date(
       month_int, year_int
     ), tz = "UTC")
+
+    # November timezone processing
     if (month_int == 11) {
+      if (dates_in_UTC) {
+        time_change_date <- time_change_date + lubridate::hours(7)
+      }
       end_pdt_index <- which( # RAMPs have data overlap
         dates[1:(length(dates) - 1)] > dates[2:length(dates)]
       )
       if (end_pdt_index == 0) { # QAQ have no overlap, data overwritten
         end_pdt_index <- tail(which(dates < time_change_date), 1)
       }
-      dates <- shift_timezones_at_time_change(
-        dates, end_pdt_index, "Etc/GMT+7",
-        "Etc/GMT+8", "Etc/GMT+8"
-      )
-    } else if (month_int == 3) {
+      if (dates_in_UTC) {
+        dates <- shift_timezones_at_time_change(
+          dates, end_pdt_index, "UTC", "UTC", "Etc/GMT+8"
+        )
+      } else {
+        dates <- shift_timezones_at_time_change(
+          dates, end_pdt_index, "Etc/GMT+7",
+          "Etc/GMT+8", "Etc/GMT+8"
+        )
+      }
+    }
+    # March timezone processing
+    else if (month_int == 3) {
+      if (dates_in_UTC) {
+        time_change_date <- time_change_date + lubridate::hours(8)
+      }
       end_pst_index <- tail(which(dates < time_change_date), 1)
-      dates <- shift_timezones_at_time_change(
-        dates, end_pst_index, "Etc/GMT+8",
-        "Etc/GMT+7", "Etc/GMT+8"
+      if (dates_in_UTC) {
+        dates <- shift_timezones_at_time_change(
+          dates, end_pst_index, "UTC", "UTC", "Etc/GMT+8"
+        )
+      } else {
+        dates <- shift_timezones_at_time_change(
+          dates, end_pst_index, "Etc/GMT+8",
+          "Etc/GMT+7", "Etc/GMT+8"
+        )
+      }
+    }
+  } # Processing if no timezone occurs
+  else {
+    if (dates_in_UTC) {
+      dates <- as.POSIXct(dates, tzone = "US/Pacific")
+    } else {
+      dates <- lubridate::force_tz(
+        dates, tzone = "US/Pacific"
       )
     }
-  } else {
-    dates <- lubridate::force_tz(
-      dates, tzone = "US/Pacific"
-    )
   }
   invisible(dates)
 }
 
 # Assume dates only include dates you want data for
 # Assume there is only one year in dates range
+# Assumes dates are local time
 set_timezone_from_dates <- function(
-  dates
+  dates, dates_in_UTC
 ) {
   nov_int <- 11
   mar_int <- 3
   year_int <- lubridate::year(dates[[1]])
 
+  # November time change processing
   if (nov_int %in% lubridate::month(dates)) {
     # Get Nov time change date
     time_change_date <- as.POSIXct(get_time_change_date(
       nov_int, year_int
     ), tz = "UTC")
-
+    if (dates_in_UTC) {
+      time_change_date <- time_change_date + lubridate::hours(7)
+    }
+    # Check if time change is within data range
     if (
       (dates[1] <= time_change_date) && (
         dates[length(dates)] >= time_change_date
       )
     ) {
-      # Shift all times from local time with UTC timestamp to PST
+      # Shift all times to PST
       end_pdt_index <- which( # RAMPs have data overlap
         dates[1:(length(dates) - 1)] > dates[2:length(dates)]
       )
       if (end_pdt_index == 0) { # QAQ have no overlap, data overwritten
         end_pdt_index <- tail(which(dates < time_change_date), 1)
       }
-      dates <- shift_timezones_at_time_change(
-        dates, end_pdt_index, "Etc/GMT+7",
-        "Etc/GMT+8", "Etc/GMT+8"
-      )
+      if (dates_in_UTC) {
+        print("Registered that dates are in UTC")
+        dates <- shift_timezones_at_time_change(
+          dates, end_pdt_index, "UTC",
+          "UTC", "Etc/GMT+8"
+        )
+      } else {
+        dates <- shift_timezones_at_time_change(
+          dates, end_pdt_index, "Etc/GMT+7",
+          "Etc/GMT+8", "Etc/GMT+8"
+        )
+      }
       return(dates)
     }
-  } else if (mar_int %in% lubridate::month(dates)) {
+  } 
+  # March time change processing
+  else if (mar_int %in% lubridate::month(dates)) {
     # Get Mar time change date
     time_change_date <- as.POSIXct(get_time_change_date(
       mar_int, year_int
     ), tz = "UTC")
-
+    if (dates_in_UTC) {
+      time_change_date <- time_change_date + lubridate::hours(8)
+    }
+    # Check if time change is within data range
     if (
       (dates[1] <= time_change_date) && (
         dates[length(dates)] >= time_change_date
       )
     ) {
-      # Shift all times from local time with UTC timestamp to PST
+      # Shift all times to PST
       end_pst_index <- tail(which(dates < time_change_date), 1)
-      dates <- shift_timezones_at_time_change(
-        dates, end_pst_index, "Etc/GMT+8",
-        "Etc/GMT+7", "Etc/GMT+8"
-      )
+
+      if (dates_in_UTC) {
+        dates <- shift_timezones_at_time_change(
+          dates, end_pdt_index, "UTC",
+          "UTC", "Etc/GMT+8"
+        )
+      } else {
+        dates <- shift_timezones_at_time_change(
+          dates, end_pst_index, "Etc/GMT+8",
+          "Etc/GMT+7", "Etc/GMT+8"
+        )
+      }
       return(dates)
     }
   }
-  dates <- lubridate::force_tz(
-    dates, tzone = "US/Pacific"
-  )
+  # Processing if no timezone occurs
+  if (dates_in_UTC) {
+    dates <- as.POSIXct(dates, tz = "US/Pacific")
+  } else {
+    dates <- lubridate::force_tz(
+      dates, tzone = "US/Pacific"
+    )
+  }
 }
 
 # times <- c(

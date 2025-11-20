@@ -101,33 +101,33 @@ get_all_processed_sensor_dfs <- function(
 
 # sensor_df_list is either the indoor or outdoor df list
 # location_folder is either indoor or outdoor
-# Sensor location must match the name in sensor_data json
+# start and end date in YYYY-MM-DD format
+# Use if you can't get files from github and have a semi-processed csv
 get_one_processed_sensor_df <- function(
-  sensor_df_list, sensor_csv_dir, location_folder,
-  month_char, year_int, sensor_location, sensor_id
+  sensor_csv_dir, location_folder,
+  month_char, year_int, sensor_id,
+  start_date, end_date, times_in_UTC,
+  includes_time_change
 ) {
   # Read and process sensor data
-  unprocessed_sensor_data_df <- readr::read_csv(sensor_csv_dir)
-  processed_sensor_data_df <- process_pollutant_data_df(
-    unprocessed_sensor_data_df
+  unprocessed_sensor_data_df <- readr::read_csv(
+    sensor_csv_dir, show_col_types = FALSE
   )
-
-  sensor_df_list[[sensor_location]] <- processed_sensor_data_df
-
+  processed_sensor_data_df <- process_pollutant_data_df(
+    unprocessed_sensor_data_df, start_date, end_date, times_in_UTC
+  )
   # Get timezone of data
   if (includes_time_change) {
     timezone <- "Etc/GMT+8" # PST
   } else {
     timezone <- "US/Pacific" # PST or PDT
   }
-
   # Prepare csv destination
   month_folder <- sprintf("%s%s", month_char, year_int)
   data_destination <- file.path(location_folder, month_folder)
   if (!(dir.exists(data_destination))) {
     dir.create(data_destination)
   }
-
   # Save data to csv
   data.table::fwrite(
     transform(
@@ -136,10 +136,18 @@ get_one_processed_sensor_df <- function(
       location_folder, month_folder, sprintf("%s.csv", sensor_id)
     )
   )
-  invisible(sensor_df_list) # Return og list with sensor data added
+  invisible(processed_sensor_data_df) # Return sensor df
 }
 
-get_all_processed_sensor_dfs(
-  sensor_data, month_char, month_int, year_int, includes_time_change,
-  "test_outdoor", "test_indoor"
+# get_all_processed_sensor_dfs(
+#   sensor_data, month_char, month_int, year_int, includes_time_change,
+#   "test_outdoor", "test_indoor", 
+# )
+
+month_dates <- get_month_start_end_dates(month_int, year_int)
+
+get_one_processed_sensor_df(
+  "MOD-00629_pred_2025_10_01.csv", "test_indoor", "October", 2025, "MOD-00629",
+  month_dates[["month_start_date"]], month_dates[["month_end_date"]], TRUE,
+  FALSE
 )
