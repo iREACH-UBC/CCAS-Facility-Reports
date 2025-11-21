@@ -25,12 +25,10 @@ data_includes_time_change <- sensor_metadata[["includes_time_change"]]
 month_char <- sensor_metadata[["month_char"]]
 year_int <- sensor_metadata[["year_int"]]
 
-#TODO- REMOVE
-month_char <- "October"
-
 # location_type is "outdoor" or "indoor"
 # location folder is "indoor_data_processed" or "outdoor_data_processed"
 # function also saves the data to a csv
+# TO BE REMOVED
 preprocess_sensor_data <- function(
   sensor_data, data_includes_time_change, month_char, year_int, location_type
 ) {
@@ -139,7 +137,7 @@ preprocess_sensor_data <- function(
 # }
 
 # Used on dfs obtained from reading from github (local time)
-# Assumes all rows present, including AQHI
+# Assumes all column types present, including AQHI
 process_sensor_data_df <- function(
   data_includes_time_change, calibrated_dataset_df, month_int, year_int
 ) {
@@ -157,6 +155,14 @@ process_sensor_data_df <- function(
     pollutant_data$date, data_includes_time_change, month_int, year_int,
     FALSE
   )
+  # Delete any dates not belonging to month (due to timezone shift)
+  if (data_includes_time_change) {
+    if (any(lubridate::month(pollutant_data$date) != month_int)) {
+      pollutant_data <- pollutant_data[
+        -which(lubridate::month(pollutant_data$date) != month_int), 
+      ]
+    }
+  }
   pollutant_data #Implicit return
 }
 
@@ -165,7 +171,7 @@ process_sensor_data_df <- function(
 # Assumes dates are in local time but with UTC timestamp
 # Start and end date in YYYY-MM-DD format
 process_pollutant_data_df <- function(
-  pollutant_df, start_date_char, end_date_char, csv_dates_in_UTC
+  pollutant_df, start_date_char, end_date_char, csv_dates_in_utc
 ) {
   # Extra processing if date is read as a character
   if(typeof(pollutant_df$date) != "double") {
@@ -173,7 +179,7 @@ process_pollutant_data_df <- function(
     pollutant_df$date <- ifelse(
       grepl(":", pollutant_df$date),
       pollutant_df$date,
-      paste0(pollutant_df$date, " 00:00:00") # Remove SS if openair complains
+      paste0(pollutant_df$date, " 00:00:00") # TODO: Remove SS if openair complains
     )
     # Convert time to POSIX w/ UTC timestamp
     # Done to be consistent with typical read_csv output
@@ -183,15 +189,21 @@ process_pollutant_data_df <- function(
   pollutant_df$AQHI <- get_aqhi_column(pollutant_df)
 
   # Set dates to consistent timezone
-  pollutant_df$date <- set_timezone_from_dates(pollutant_df$date, csv_dates_in_UTC)
+  pollutant_df$date <- set_timezone_from_dates(
+    pollutant_df$date, csv_dates_in_utc
+  )
 
   # Remove dates before start and after end dates
   final_timezone <- lubridate::tz(pollutant_df$date[1])
   start_date <- as.POSIXct(start_date_char, tz = final_timezone)
   end_date <- as.POSIXct(end_date_char, tz = final_timezone)
   date_after_end <- end_date + lubridate::days(1)
-  pollutant_df <- pollutant_df[-which(pollutant_df$date >= date_after_end), ]
-  pollutant_df <- pollutant_df[-which(pollutant_df$date < start_date), ]
+  if (pollutant_df$date[1] < start_date) {
+    pollutant_df <- pollutant_df[-which(pollutant_df$date < start_date), ]
+  }
+  if (pollutant_df$date[length(pollutant_df$date)] >= date_after_end) {
+    pollutant_df <- pollutant_df[-which(pollutant_df$date >= date_after_end), ]
+  }
 
   invisible(pollutant_df)
 }

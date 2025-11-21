@@ -72,6 +72,7 @@ get_df_from_calibrated_csvs <- function(raw_git_urls) {
 # TODO: Don't save to csv in function, do in application
 # Assumes date field is read as POSIX UTC but should be in local time
 # TODO: make applications folder and move there
+# TO BE REMOVED
 process_calibrated_data_df <- function(
   data_includes_time_change, calibrated_dataset_df, month_int, year_int
 ) {
@@ -133,7 +134,7 @@ shift_timezones_at_time_change <- function(
     dates_b4 <- as.POSIXct(
       dates_b4, tz = final_timezone
     )
-  } 
+  }
   if (timezone_after != final_timezone) {
     dates_after <- as.POSIXct(
       dates_after, tz = final_timezone
@@ -279,6 +280,8 @@ create_processed_csv <- function(
   return("Success!")
 }
 
+# To be removed when you remove non-metadata params
+# Non-metadata params to be defined by user
 extract_sensor_data_from_json <- function(json_file_dir) {
   sensor_metadata <- jsonlite::fromJSON(json_file_dir)
   includes_time_change <- sensor_metadata$includes_time_change
@@ -327,7 +330,9 @@ get_aqhi_column <- function(dataset){
 }
 
 # Sets time to PST if includes time change, PST or PDT otherwise
-# Need month_int and year_int
+# data_includes_time_change is true if both:
+#   1. dates includes a time change
+#   2. the time change is in your month of interest (month_int)
 # Assumes dates are in local time unless dates_in_UTC is true
 set_timezone_from_month <- function(
   dates, data_includes_time_change, month_int,
@@ -378,7 +383,7 @@ set_timezone_from_month <- function(
         )
       }
     }
-  } # Processing if no timezone occurs
+  } # Processing if no time change occurs
   else {
     if (dates_in_UTC) {
       dates <- as.POSIXct(dates, tzone = "US/Pacific")
@@ -391,18 +396,24 @@ set_timezone_from_month <- function(
   invisible(dates)
 }
 
-# Assume dates only include dates you want data for
-# Assume there is only one year in dates range
-# Assumes dates are local time
+# Dates should mostly be for one month
+# Dates from prev/next month acceptable if majority of dates from main month
+# Dates that are not from main month treated same as main month
+# TO BE REMOVED
 set_timezone_from_dates <- function(
   dates, dates_in_UTC
 ) {
   nov_int <- 11
   mar_int <- 3
-  year_int <- lubridate::year(dates[[1]])
+
+  # Get dominant month and year in dataset
+  months_count <- table(lubridate::month(dates))
+  month_int <- names(months_count)[which.max(months_count)] #Dominant month in dataset
+  years_count <- table(lubridate::year(dates))
+  year_int <- names(years_count)[which.max(years_count)] #Dominant year in dataset
 
   # November time change processing
-  if (nov_int %in% lubridate::month(dates)) {
+  if (nov_int == month_int) {
     # Get Nov time change date
     time_change_date <- as.POSIXct(get_time_change_date(
       nov_int, year_int
@@ -439,7 +450,7 @@ set_timezone_from_dates <- function(
     }
   } 
   # March time change processing
-  else if (mar_int %in% lubridate::month(dates)) {
+  else if (mar_int == month_int) {
     # Get Mar time change date
     time_change_date <- as.POSIXct(get_time_change_date(
       mar_int, year_int

@@ -12,11 +12,19 @@ year_int <- sensor_metadata[["year_int"]]
 includes_time_change <- sensor_metadata[["includes_time_change"]]
 
 # Generates list of outdoor and indoor sensor dfs
+# start and stop date in YYYY-MM-DD format
 # Output dfs are ready to be sent to processing script without further changes
+# Assumes max one month worth of data, all data for same month
+# For March: choose end date as April 1st to avoid time change data loss
+# Other than March or Nov, all file start/stop must be in same month
 get_all_processed_sensor_dfs <- function(
-  sensor_data, month_char, month_int, year_int, includes_time_change,
+  sensor_data, start_date, end_date, includes_time_change,
   outdoor_location_folder, indoor_location_folder
 ) {
+  month_int <- lubridate::month(start_date)
+  month_char <- month.name[month_int]
+  year_int <- lubridate::year(start_date)
+
   # Get timezone of data
   if (includes_time_change) {
     timezone <- "Etc/GMT+8" # PST
@@ -34,25 +42,19 @@ get_all_processed_sensor_dfs <- function(
 
   # Get dfs for indoor/outdoor sensors at each location
   # Assumes one outdoor/indoor sensor pair per location
-  for (location in names(sensor_data)) {
+  for (location in names(sensor_data)[12]) {
     location_data <- sensor_data[[location]]
 
-    # Use if dates are full month for all sensors
-    # Use get_file_urls with custom start/stop otherwise
-    month_dates <- get_month_start_end_dates(month_int, year_int)
-
-    # Add create and add processed dfs to outdoor and indoor dfs lists
+    # Create and add processed dfs to outdoor and indoor dfs lists
     for (id_type in sensor_id_types) {
       sensor_id <- location_data[id_type]
 
-      # Start replacement if no longer using git for file storage
       raw_urls <- get_file_urls(
-        start_date = month_dates[["month_start_date"]],
-        stop_date = month_dates[["month_end_date"]],
+        start_date = start_date,
+        stop_date = end_date,
         sensor_id = sensor_id
       )
       sensor_data_df <- get_df_from_raw_git_urls(raw_urls) # Dates in POSIXct
-      # End replacement if no longer using git for file storage
 
       if (!(is.null(sensor_data_df))) {
         processed_sensor_data_df <- process_sensor_data_df(
@@ -100,15 +102,20 @@ get_all_processed_sensor_dfs <- function(
 }
 
 # sensor_df_list is either the indoor or outdoor df list
-# location_folder is either indoor or outdoor
-# start and end date in YYYY-MM-DD format
+# location_folder is either indoor or outdoor folder, is location of output
+# start and end date in YYYY-MM-DD format, represent local time or PST
 # Use if you can't get files from github and have a semi-processed csv
+# Assume there is only one month's data in dataset (can be <1 mo. but not more)
 get_one_processed_sensor_df <- function(
   sensor_csv_dir, location_folder,
-  month_char, year_int, sensor_id,
+  sensor_id,
   start_date, end_date, times_in_UTC,
   includes_time_change
 ) {
+  month_int <- lubridate::month(start_date)
+  month_char <- month.name[month_int]
+  year_int <- lubridate::year(start_date)
+
   # Read and process sensor data
   unprocessed_sensor_data_df <- readr::read_csv(
     sensor_csv_dir, show_col_types = FALSE
@@ -139,15 +146,22 @@ get_one_processed_sensor_df <- function(
   invisible(processed_sensor_data_df) # Return sensor df
 }
 
+# month_dates <- get_month_start_end_dates(month_int, year_int)
+
 # get_all_processed_sensor_dfs(
-#   sensor_data, month_char, month_int, year_int, includes_time_change,
-#   "test_outdoor", "test_indoor", 
+#   sensor_data, month_dates[["month_start_date"]],
+#   month_dates[["month_end_date"]],
+#   includes_time_change, "test_outdoor", "test_indoor"
 # )
 
-month_dates <- get_month_start_end_dates(month_int, year_int)
-
-get_one_processed_sensor_df(
-  "MOD-00629_pred_2025_10_01.csv", "test_indoor", "October", 2025, "MOD-00629",
-  month_dates[["month_start_date"]], month_dates[["month_end_date"]], TRUE,
-  FALSE
+get_all_processed_sensor_dfs(
+  sensor_data, "2025-11-01",
+  "2025-11-19", TRUE,
+  "test_outdoor", "test_indoor"
 )
+
+
+# get_one_processed_sensor_df(
+#   "2049_pred_2025_10_01 (1).csv", "test_indoor", "2049",
+#   "2025-10-01", "2025-10-31", FALSE, FALSE
+# )
