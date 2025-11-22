@@ -1,29 +1,37 @@
 source("libraries/helper_functions.R")
 source("applications/preprocess_sensor_data.R")
 
-# Get data from sensor json
-sensor_metadata <- extract_sensor_data_from_json(
-  "sensor_data.json"
+# Get metadata used in processing
+# Assumes same start/end dates for each sensor
+# Make your own script for any sensors whose dates differ
+# Start user adjustable parameters
+json_file_dir <- "sensor_data.json"
+month_char <- "October"
+month_int <- match(month_char, month.name) # Do not change
+year_int <- 2025
+month_dates <- get_month_start_end_dates(month_int, year_int)
+start_date_char <- month_dates[["month_start_date"]]
+end_date_char <- month_dates[["month_end_date"]]
+# End user adjustable parameters
+
+sensor_data <- jsonlite::fromJSON(json_file_dir)
+includes_time_change <- data_includes_time_change(
+  month_int, start_date_char, end_date_char, year_int
 )
-sensor_data <- sensor_metadata[["sensor_data"]]
-month_char <- sensor_metadata[["month_char"]]
-month_int <- match(month_char, month.name)
-year_int <- sensor_metadata[["year_int"]]
-includes_time_change <- sensor_metadata[["includes_time_change"]]
 
 # Generates list of outdoor and indoor sensor dfs
 # start and stop date in YYYY-MM-DD format
 # Output dfs are ready to be sent to processing script without further changes
 # Assumes max one month worth of data, all data for same month
 # For March: choose end date as April 1st to avoid time change data loss
-# Other than March or Nov, all file start/stop must be in same month
+# Other than March end date, all start/stop dates must be in same month
 get_all_processed_sensor_dfs <- function(
-  sensor_data, start_date, end_date, includes_time_change,
+  sensor_data, start_date_char, end_date_char, includes_time_change,
   outdoor_location_folder, indoor_location_folder
 ) {
-  month_int <- lubridate::month(start_date)
+  month_int <- lubridate::month(start_date_char)
   month_char <- month.name[month_int]
-  year_int <- lubridate::year(start_date)
+  year_int <- lubridate::year(start_date_char)
 
   # Get timezone of data
   if (includes_time_change) {
@@ -42,7 +50,7 @@ get_all_processed_sensor_dfs <- function(
 
   # Get dfs for indoor/outdoor sensors at each location
   # Assumes one outdoor/indoor sensor pair per location
-  for (location in names(sensor_data)[12]) {
+  for (location in names(sensor_data)) {
     location_data <- sensor_data[[location]]
 
     # Create and add processed dfs to outdoor and indoor dfs lists
@@ -50,49 +58,40 @@ get_all_processed_sensor_dfs <- function(
       sensor_id <- location_data[id_type]
 
       raw_urls <- get_file_urls(
-        start_date = start_date,
-        stop_date = end_date,
+        start_date = start_date_char,
+        stop_date = end_date_char,
         sensor_id = sensor_id
       )
       sensor_data_df <- get_df_from_raw_git_urls(raw_urls) # Dates in POSIXct
 
+      # Save csv of sensor data
       if (!(is.null(sensor_data_df))) {
         processed_sensor_data_df <- process_sensor_data_df(
-          includes_time_change, sensor_data_df, month_int, year_int
+          includes_time_change, sensor_data_df, month_int, year_int,
+          start_date_char, end_date_char
         )
-        # Save dfs and write to csvs
         month_folder <- sprintf("%s%s", month_char, year_int)
         if (id_type == "outdoor_sensor_ID") {
           outdoor_sensor_df_list[[location]] <- processed_sensor_data_df
-          data_destination <- file.path(outdoor_location_folder, month_folder)
-          if (!(dir.exists(data_destination))) {
-            dir.create(data_destination)
-          }
-          data.table::fwrite(
-            transform(
-              processed_sensor_data_df, date = format(date, tz = timezone)
-            ), file.path(
-              outdoor_location_folder, month_folder, sprintf(
-                "%s.csv", sensor_id
-              )
-            )
-          )
-          print(sprintf("Created outdoor csv for %s", sensor_id))
-        } else {
+          location_folder <- outdoor_location_folder
+        } else { # indoor
           indoor_sensor_df_list[[location]] <- processed_sensor_data_df
-          data_destination <- file.path(indoor_location_folder, month_folder)
-          if (!(dir.exists(data_destination))) {
-            dir.create(data_destination)
-          }
-          data.table::fwrite(
-            transform(
-              processed_sensor_data_df, date = format(date, tz = timezone)
-            ), file.path(
-              indoor_location_folder, month_folder, sprintf("%s.csv", sensor_id)
+          location_folder <- indoor_location_folder
+        }
+        data_destination <- file.path(location_folder, month_folder)
+        if (!(dir.exists(data_destination))) {
+          dir.create(data_destination)
+        }
+        data.table::fwrite(
+          transform(
+            processed_sensor_data_df, date = format(date, tz = timezone)
+          ), file.path(
+            location_folder, month_folder, sprintf(
+              "%s.csv", sensor_id
             )
           )
-          print(sprintf("Created indoor csv for %s", sensor_id))
-        }
+        )
+        print(sprintf("Created csv for %s", sensor_id))
       } else {
         print(sprintf("Could not generate a dataframe for %s", sensor_id))
       }
@@ -101,27 +100,26 @@ get_all_processed_sensor_dfs <- function(
   invisible(c(outdoor_sensor_df_list, indoor_sensor_df_list)) # Return w/o print
 }
 
-# sensor_df_list is either the indoor or outdoor df list
 # location_folder is either indoor or outdoor folder, is location of output
-# start and end date in YYYY-MM-DD format, represent local time or PST
+# start and end date in YYYY-MM-DD format, represent local time
 # Use if you can't get files from github and have a semi-processed csv
-# Assume there is only one month's data in dataset (can be <1 mo. but not more)
+# For March: choose end date as April 1st to avoid time change data loss
+# Other than March end date, all start/stop dates must be in same month
 get_one_processed_sensor_df <- function(
   sensor_csv_dir, location_folder,
   sensor_id,
-  start_date, end_date, times_in_UTC,
-  includes_time_change
+  start_date, end_date, times_in_utc,
+  includes_time_change, month_int, year_int
 ) {
-  month_int <- lubridate::month(start_date)
   month_char <- month.name[month_int]
-  year_int <- lubridate::year(start_date)
 
   # Read and process sensor data
   unprocessed_sensor_data_df <- readr::read_csv(
     sensor_csv_dir, show_col_types = FALSE
   )
   processed_sensor_data_df <- process_pollutant_data_df(
-    unprocessed_sensor_data_df, start_date, end_date, times_in_UTC
+    unprocessed_sensor_data_df, start_date, end_date, times_in_utc,
+    includes_time_change, month_int, year_int
   )
   # Get timezone of data
   if (includes_time_change) {
@@ -149,19 +147,25 @@ get_one_processed_sensor_df <- function(
 # month_dates <- get_month_start_end_dates(month_int, year_int)
 
 # get_all_processed_sensor_dfs(
-#   sensor_data, month_dates[["month_start_date"]],
-#   month_dates[["month_end_date"]],
-#   includes_time_change, "test_outdoor", "test_indoor"
+#   sensor_data, start_date_char,
+#   end_date_char,
+#   includes_time_change, "test_outdoor2", "test_indoor2"
 # )
 
-get_all_processed_sensor_dfs(
-  sensor_data, "2025-11-01",
-  "2025-11-19", TRUE,
-  "test_outdoor", "test_indoor"
-)
-
+# get_all_processed_sensor_dfs(
+#   sensor_data, "2025-11-01",
+#   "2025-11-19", TRUE,
+#   "test_outdoor2", "test_indoor2"
+# )
 
 # get_one_processed_sensor_df(
-#   "2049_pred_2025_10_01 (1).csv", "test_indoor", "2049",
-#   "2025-10-01", "2025-10-31", FALSE, FALSE
+#   "MOD-00617_pred_2025_10_01.csv", "test_indoor2", "MOD-00617",
+#   "2025-10-01", "2025-10-31", TRUE, includes_time_change,
+#   month_int, year_int
 # )
+
+get_one_processed_sensor_df(
+  "Mar_test_utc.csv", "test_indoor2", "TEST2",
+  "2026-03-01", "2026-03-31", TRUE, TRUE,
+  3, 2026
+)

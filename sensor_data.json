@@ -63,8 +63,5 @@
         "outdoor_sensor_ID": "MOD-00623",
         "indoor_sensor_ID": "MOD-00613",
         "photo_file_name": "LynnValley_Photo.png"
-    },    
-    "includes_time_change": false,
-    "year": 2025,
-    "month": "October"
+    }
 }
