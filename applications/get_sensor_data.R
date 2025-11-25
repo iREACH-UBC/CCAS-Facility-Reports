@@ -1,6 +1,8 @@
 source("libraries/helper_functions.R")
 source("applications/preprocess_sensor_data.R")
 
+# TODO: REMOVE ALL NON-FUNCTIONS AFTER TESTING DONE
+
 # Get metadata used in processing
 # Assumes same start/end dates for each sensor
 # Make your own script for any sensors whose dates differ
@@ -97,7 +99,10 @@ get_all_processed_sensor_dfs <- function(
       }
     }
   }
-  invisible(c(outdoor_sensor_df_list, indoor_sensor_df_list)) # Return w/o print
+  invisible(list(
+    "outdoor_sensor_data" = outdoor_sensor_df_list,
+    "indoor_sensor_data" = indoor_sensor_df_list
+  )) # Return w/o print
 }
 
 # location_folder is either indoor or outdoor folder, is location of output
@@ -164,8 +169,8 @@ get_one_processed_sensor_df <- function(
 #   month_int, year_int
 # )
 
-get_one_processed_sensor_df(
-  "Mar_test_utc.csv", "test_indoor2", "TEST2",
-  "2026-03-01", "2026-03-31", TRUE, TRUE,
-  3, 2026
-)
+# get_one_processed_sensor_df(
+#   "Mar_test_utc.csv", "test_indoor2", "TEST2",
+#   "2026-03-01", "2026-03-31", TRUE, TRUE,
+#   3, 2026
+# )

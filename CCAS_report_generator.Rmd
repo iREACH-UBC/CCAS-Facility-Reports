@@ -5,8 +5,8 @@ params:
   location: NULL
   includes_time_change: NULL
   facility_photo_dir: NULL
-  outdoor_file_dir: NULL
-  indoor_file_dir: NULL
+  outdoor_dataset: NULL
+  indoor_dataset: NULL
 title: "`r params$location` - `r params$month` Outdoor and Indoor AQ Data\\vspace{2pt}"
 subtitle: "UBC Community Clean Air Spaces (CCAS) Research Project\\vspace{-0pt}"
 date: "`r Sys.Date()`"
@@ -122,50 +122,8 @@ get_aqhi_column <- function(dataset){
 
 ```{r Load and Subset Data, include = FALSE, message = FALSE, warning = FALSE}
 # Load data
-outdoor_data <- read.csv(params$outdoor_file_dir)
-indoor_data <- read.csv(params$indoor_file_dir)
-data_list <- list(outdoor_data, indoor_data)
-
-for (i in seq_along(data_list)) {
-  if (!("AQHI" %in% colnames(data_list[[i]]))) {
-    data_list[[i]]$AQHI <- get_aqhi_column(data_list[[i]])
-  }
-
-  # Set negatives to zero
-  data_list[[i]][data_list[[i]] < 0] <- 0
-
-  # Average out data at duplicate times
-  # TODO: take this out for Nov
-  data_list[[i]] <- remove_duplicate_times(data_list[[i]])
-
-  # Ensure consistent date formatting
-  data_list[[i]]$date <- ifelse(
-    grepl(":", data_list[[i]]$date),
-    data_list[[i]]$date,
-    paste0(data_list[[i]]$date, " 00:00") # add midnight if missing
-  )
-  # data_list[[i]]$date <- as.POSIXct(
-  #   data_list[[i]]$date,
-  #   format = "%Y-%m-%d %H:%M"
-  #   # tz = "US/Pacific"
-  # )
-
-  #TODO: change for Nov data
-  # Takes timezone of input data, UTC by default
-  data_list[[i]]$date <- as.POSIXct(
-    data_list[[i]]$date,
-    format = "%Y-%m-%d %H:%M",
-    tz = "US/Pacific"
-  )
-  # # Convert indoor data to local time
-  # # THIS DATA IS 14 HRS BACK, NOT IN UTC
-  # if (i == 2) {
-  #   data_list[[i]]$date <- data_list[[i]]$date - 7 * 3600
-  # }
-}
-
-outdoor_data <- data_list[[1]]
-indoor_data <- data_list[[2]]
+outdoor_data <- params$outdoor_dataset
+indoor_data <- params$indoor_dataset
 
 # Define pollutants and their units
 pollutants <- c("NO2", "NO", "CO2", "O3", "CO", "PM2_5")

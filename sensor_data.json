@@ -63,5 +63,15 @@
         "outdoor_sensor_ID": "MOD-00623",
         "indoor_sensor_ID": "MOD-00613",
         "photo_file_name": "LynnValley_Photo.png"
+    },
+    "Central_Branch_Library": {
+        "outdoor_sensor_ID": "2023",
+        "indoor_sensor_ID": "2028",
+        "photo_file_name": "CentralLibrary_Photo.png"
+    },
+    "West_End_Community_Centre": {
+        "outdoor_sensor_ID": "MOD-00627",
+        "indoor_sensor_ID": "MOD-00621",
+        "photo_file_name": "WestEnd_Photo.png"
     }
 }

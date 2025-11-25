@@ -2,3 +2,6 @@ test_indoor
 test_outdoor
 test_indoor2
 test_outdoor2
+test_reports
+test_pipeline_indoor
+test_pipeline_outdoor
