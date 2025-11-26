@@ -151,6 +151,24 @@ indoor_data_24hr_avg$AQHI <- round(indoor_data_24hr_avg$AQHI)
 ```
 
 ```{r Load plotting functions, include = FALSE, message = FALSE, warning = FALSE}
+get_uptime_pie_chart <- function(
+  uptime_proportion, is_outdoor, month_char
+) {
+  if (is_outdoor) {
+    location <- "outdoor"
+  } else {
+    location <- "indoor"
+  }
+  sensor_proportions <- c(uptime_proportion, 1 - uptime_proportion)
+  labels <- c("Sensor uptime", "Sensor downtime")
+  colours <- c("green", "red")
+  pie(sensor_proportions, labels, col = colours,
+    main = sprintf("Your %s sensor had %s uptime for %s.",
+      location, uptime_proportion, month_char
+    )
+  )
+}
+
 # Formatted variables are expressions with subscripts/ special chars
 generate_timeseries_plot <- function(
     pollutant_name, y_label_expression,
@@ -465,6 +483,17 @@ If you have questions, please email Prof. Naomi Zimmerman, Caroline Webber or Hu
 \end{center}
 
 \newpage
+# Sensor Status
+```{r Sensor uptime, echo = FALSE, fig.show="hold", out.width="50%", fig.height = 2}
+# TODO: get outdoor and indoor uptime - update as needed
+get_uptime_pie_chart()
+make_aqhi_calendar_plot(
+  dataset = indoor_data_24hr_avg,
+  dataset_col_name = "AQHI",
+  year_int = year, month_int = month_int, is_outdoor_data = FALSE
+)
+```
+
 
 # Air Quality Health Index (AQHI)
 
