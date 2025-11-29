@@ -21,6 +21,15 @@ includes_time_change <- data_includes_time_change(
   month_int, start_date_char, end_date_char, year_int
 )
 
+# process a single df over start and end range
+# Assumes up to one month of data collected, all in same month
+process_sensor_df_from_git <- function(
+  start_date_char, end_date_char, sensor_id,
+  month_char, year_int
+) {
+  
+}
+
 # Generates list of outdoor and indoor sensor dfs
 # start and stop date in YYYY-MM-DD format
 # Output dfs are ready to be sent to processing script without further changes
@@ -105,12 +114,13 @@ get_all_processed_sensor_dfs <- function(
   )) # Return w/o print
 }
 
+
 # location_folder is either indoor or outdoor folder, is location of output
 # start and end date in YYYY-MM-DD format, represent local time
 # Use if you can't get files from github and have a semi-processed csv
 # For March: choose end date as April 1st to avoid time change data loss
 # Other than March end date, all start/stop dates must be in same month
-get_one_processed_sensor_df <- function(
+process_sensor_df_from_csv <- function(
   sensor_csv_dir, location_folder,
   sensor_id,
   start_date, end_date, times_in_utc,
@@ -148,29 +158,3 @@ get_one_processed_sensor_df <- function(
   )
   invisible(processed_sensor_data_df) # Return sensor df
 }
-
-# month_dates <- get_month_start_end_dates(month_int, year_int)
-
-# get_all_processed_sensor_dfs(
-#   sensor_data, start_date_char,
-#   end_date_char,
-#   includes_time_change, "test_outdoor2", "test_indoor2"
-# )
-
-# get_all_processed_sensor_dfs(
-#   sensor_data, "2025-11-01",
-#   "2025-11-19", TRUE,
-#   "test_outdoor2", "test_indoor2"
-# )
-
-# get_one_processed_sensor_df(
-#   "MOD-00617_pred_2025_10_01.csv", "test_indoor2", "MOD-00617",
-#   "2025-10-01", "2025-10-31", TRUE, includes_time_change,
-#   month_int, year_int
-# )
-
-# get_one_processed_sensor_df(
-#   "Mar_test_utc.csv", "test_indoor2", "TEST2",
-#   "2026-03-01", "2026-03-31", TRUE, TRUE,
-#   3, 2026
-# )

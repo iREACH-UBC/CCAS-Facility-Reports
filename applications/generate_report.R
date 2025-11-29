@@ -8,6 +8,8 @@ generate_all_reports <- function(
   sensor_data,
   year_int,
   month_char,
+  start_date_char,
+  end_date_char,
   includes_time_change,
   outdoor_data_dfs, #NA if data from csv
   indoor_data_dfs #NA if data from csv
@@ -72,7 +74,7 @@ generate_all_reports <- function(
 
     if (is.null(outdoor_data) || is.null(indoor_data)) {
       print(sprintf(
-        "Could not generate report for %s. Files may be unavailable from Git",
+        "Could not generate report for %s. Data for your time range may be unavailable from Git",
         gsub("_", " ", location)
       ))
     } else {
@@ -90,6 +92,8 @@ generate_all_reports <- function(
           month = month_char,
           location = chartr("_", " ", location),
           includes_time_change = includes_time_change,
+          start_date_char = start_date_char,
+          end_date_char = end_date_char,
           facility_photo_dir = file.path(
             overall_photos_folder_name, location_photo_file
           ),
@@ -108,6 +112,8 @@ generate_all_reports <- function(
 generate_one_report <- function(
   year_int,
   month_char,
+  start_date_char,
+  end_date_char,
   includes_time_change,
   facility_location_char,
   facility_photo_directory, # File inclusive
@@ -124,8 +130,10 @@ generate_one_report <- function(
     params = list(
       year = year_int,
       month = month_char,
-      location = facility_location_char,
+      location = chartr("_", " ", facility_location_char),
       includes_time_change = includes_time_change,
+      start_date_char = start_date_char,
+      end_date_char = end_date_char,
       facility_photo_dir = facility_photo_directory,
       outdoor_dataset = outdoor_file_df,
       indoor_dataset = indoor_file_df

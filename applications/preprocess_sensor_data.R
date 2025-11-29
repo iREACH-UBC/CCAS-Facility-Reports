@@ -9,8 +9,8 @@ process_sensor_data_df <- function(
   pollutant_data <- calibrated_dataset_df[c(
     "DATE", "CO", "NO2", "NO", "O3", "PM2.5", "CO2", "AQHI"
   )]
-  # Reformat date field
-  colnames(pollutant_data)[[1]] <- "date" # timeAverage requires "date" field
+  # Reformat date field to meet timeAverage name requirements
+  names(pollutant_data)[names(pollutant_data) == "DATE"] <- "date"
 
   # Reformat PM2.5
   names(pollutant_data)[names(pollutant_data) == "PM2.5"] <- "PM2_5"
@@ -30,7 +30,9 @@ process_sensor_data_df <- function(
 
 # Assumes that only date, pollutant and PM2.5 rows included in dataframe
 # Assumes DATE has already been renamed to date
-# Assumes dates are in local time but with UTC timestamp
+# Assumes dates always have UTC timestamp
+# Assumes dates are in UTC if csv_dates_in_utc is true
+# Assumes dates are in local time but with UTC timestamp otherwise
 # Start and end date in YYYY-MM-DD format
 process_pollutant_data_df <- function(
   pollutant_df, start_date_char, end_date_char, csv_dates_in_utc,
@@ -42,10 +44,11 @@ process_pollutant_data_df <- function(
     pollutant_df$date <- ifelse(
       grepl(":", pollutant_df$date),
       pollutant_df$date,
-      paste0(pollutant_df$date, " 00:00:00") # TODO: Remove SS if openair complains
+      paste0(pollutant_df$date, " 00:00:00") # Remove SS if openair complains
     )
     # Convert time to POSIX w/ UTC timestamp
     # Done to be consistent with typical read_csv output
+    # Done in case read.csv used
     pollutant_df$date <- as.POSIXct(pollutant_df$date, tz = "UTC")
   }
   # Add AQHI column

@@ -1,5 +1,5 @@
-og_csv_dir <- "test_indoor2/March2026/TEST2.csv"
-new_csv_dir <- "test_indoor2/March2026/TEST1.csv"
+og_csv_dir <- "indoor_data_processed/October2025/2026.csv"
+new_csv_dir <- "test_pipeline_indoor2/October2025/2026.csv"
 
 og_csv <- read.csv(og_csv_dir)
 new_csv <- read.csv(new_csv_dir)

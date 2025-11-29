@@ -13,24 +13,24 @@ start_date_char <- month_dates[["month_start_date"]]
 end_date_char <- month_dates[["month_end_date"]]
 # End user adjustable parameters
 
-print("Got metadata")
-
 sensor_data <- jsonlite::fromJSON(json_file_dir)
 includes_time_change <- data_includes_time_change(
   month_int, start_date_char, end_date_char, year_int
 )
 
-print("Got sensor data")
+print("Gathering sensor data")
 
 sensor_dfs <- get_all_processed_sensor_dfs(
   sensor_data, start_date_char, end_date_char, includes_time_change,
   "test_pipeline_outdoor", "test_pipeline_indoor"
 )
 
+print("Generating facility reports")
+
 generate_all_reports(
   "test_reports", "facility_photos", "test_pipeline_outdoor",
   "test_pipeline_indoor", sensor_data, year_int,
-  month_char, includes_time_change,
+  month_char, "2025-10-01", "2025-10-31", includes_time_change,
   sensor_dfs[["outdoor_sensor_data"]],
   sensor_dfs[["indoor_sensor_data"]]
 )
