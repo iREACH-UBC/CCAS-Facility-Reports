@@ -23,9 +23,12 @@ includes_time_change <- data_includes_time_change(
 )
 
 # location must match chosen location from sensor_data json
+# Char dates must be in YYYY-MM-DD HH:MM:SS format
 get_report_from_git_csvs <- function(
-  start_date_char, end_date_char, outdoor_sensor_id,
-  indoor_sensor_id, location, facility_photo_directory,
+  start_date_char_outdoors, end_date_char_outdoors,
+  start_date_char_indoors, end_date_char_indoors,
+  outdoor_sensor_id, indoor_sensor_id,
+  location, facility_photo_directory,
   month_char, year_int, includes_time_change,
   outdoor_csv_folder, indoor_csv_folder, report_folder_directory
 ) {
@@ -45,14 +48,22 @@ get_report_from_git_csvs <- function(
     "outdoor_sensor_ID" = outdoor_sensor_id,
     "indoor_sensor_ID" = indoor_sensor_id
   )
+  start_dates <- c(
+    start_date_char_outdoors,
+    start_date_char_indoors
+  )
+  end_dates <- c(
+    end_date_char_outdoors,
+    end_date_char_indoors
+  )
 
-  for (id in sensor_ids) {
-    raw_urls <- get_file_urls(
-      start_date = start_date_char,
-      stop_date = end_date_char,
-      sensor_id = id
+  for (i in seq_along(sensor_ids)) {
+    raw_urls <- get_raw_git_urls(
+      start_date = start_dates[[i]],
+      stop_date = end_dates[[i]],
+      sensor_id = sensor_ids[[i]]
     )
-    print(sprintf("Getting data files from Git for sensor %s", id))
+    print(sprintf("Getting data files from Git for sensor %s", sensor_ids[[i]]))
     sensor_data_df <- get_df_from_raw_git_urls(raw_urls) # Dates in POSIXct
 
     if (!(is.null(sensor_data_df))) {
@@ -60,24 +71,24 @@ get_report_from_git_csvs <- function(
         includes_time_change, sensor_data_df, month_int, year_int,
         start_date_char, end_date_char
       )
-      if (id == outdoor_sensor_id) {
+      if (sensor_ids[[i]] == outdoor_sensor_id) {
         location_folder <- outdoor_csv_folder
         outdoor_data_df <- processed_sensor_data_df
       } else {
         location_folder <- indoor_csv_folder
         indoor_data_df <- processed_sensor_data_df
       }
-      print(sprintf("Saving data to csv for sensor %s", id))
+      print(sprintf("Saving data to csv for sensor %s", sensor_ids[[i]]))
       save_sensor_data_csv(
         month_char, year_int, location_folder,
         processed_sensor_data_df, timezone,
-        id
+        sensor_ids[[i]]
       )
     } else {
       print(sprintf(paste(
         "Could not collect data for sensor %s.",
         "Git files may be unavailable for your date range."
-      ), id)
+      ), sensor_ids[[i]])
       )
     }
   }
@@ -88,8 +99,10 @@ get_report_from_git_csvs <- function(
     generate_one_report(
       year_int = year_int,
       month_char = month_char,
-      start_date_char = start_date_char,
-      end_date_char = end_date_char,
+      start_date_char_outdoors = start_date_char_outdoors,
+      start_date_char_indoors = start_date_char_indoors,
+      end_date_char_outdoors = end_date_char_outdoors,
+      end_date_char_indoors = end_date_char_indoors,
       includes_time_change = includes_time_change,
       facility_location_char = chartr("_", " ", location),
       facility_photo_directory = facility_photo_directory, # File inclusive
@@ -107,6 +120,7 @@ get_report_from_git_csvs <- function(
   }
 }
 
+# Char dates in YYYY-MM-DD or YYYY-MM-DD HH:MM:SS format
 get_all_reports_from_git_csvs <- function(
   month_char, year_int, includes_time_change,
   start_date_char, end_date_char, sensor_metadata,
@@ -130,8 +144,10 @@ get_all_reports_from_git_csvs <- function(
     location_photo_file <- location_data[["photo_file_name"]]
 
     get_report_from_git_csvs(
-      start_date_char = start_date_char,
-      end_date_char = end_date_char,
+      start_date_char_outdoors = start_date_char,
+      start_date_char_indoors = start_date_char,
+      end_date_char_outdoors = end_date_char,
+      end_date_char_indoors = end_date_char,
       outdoor_sensor_id = outdoor_sensor_id,
       indoor_sensor_id = indoor_sensor_id,
       location = location,
@@ -201,6 +217,37 @@ get_report_from_csvs <- function(
   )
 }
 
+# Use when you cannot get both indoor and outdoor sensor data from Git
+# Csv from git means csv came from git data collection pipeline
+# Csv is processed if it has date, pollutant data, and AQHI only
+# Csv dates are never in utc if data came from git. May be in utc otherwise.
+get_df_from_csv <- function(
+  csv_is_from_git, csv_is_processed,
+  csv_directory_char, includes_time_change,
+  month_int, year_int, start_date_char,
+  end_date_char, csv_dates_in_utc
+) {
+  sensor_data_df <- readr::read_csv(csv_directory_char)
+
+  if (!(csv_is_processed)) {
+    if (csv_is_from_git) {
+      sensor_data_df <- process_sensor_data_df(
+        includes_time_change, sensor_data_df,
+        month_int, year_int,
+        start_date_char, end_date_char
+      )
+    } else {
+      sensor_data_df <- process_pollutant_data_df(
+        sensor_data_df, start_date_char,
+        end_date_char, csv_dates_in_utc,
+        includes_time_change, month_int,
+        year_int
+      )
+    }
+  }
+  sensor_data_df
+}
+
 # Testing functions
 
 # get_report_from_git_csvs(
@@ -217,15 +264,15 @@ get_report_from_csvs <- function(
 #   report_folder_directory = "test_pipeline_reports2"
 # )
 
-get_all_reports_from_git_csvs(
-  month_char = month_char,
-  year_int = year_int,
-  includes_time_change = includes_time_change,
-  start_date_char = start_date_char,
-  end_date_char = end_date_char,
-  sensor_metadata = sensor_data,
-  overall_report_folder_name = "test_pipeline_reports2",
-  overall_photos_folder_name = "facility_photos",
-  overall_outdoor_data_folder = "test_pipeline_outdoor2",
-  overall_indoor_data_folder = "test_pipeline_indoor2"
-)
+# get_all_reports_from_git_csvs(
+#   month_char = month_char,
+#   year_int = year_int,
+#   includes_time_change = includes_time_change,
+#   start_date_char = start_date_char,
+#   end_date_char = end_date_char,
+#   sensor_metadata = sensor_data,
+#   overall_report_folder_name = "test_pipeline_reports2",
+#   overall_photos_folder_name = "facility_photos",
+#   overall_outdoor_data_folder = "test_pipeline_outdoor2",
+#   overall_indoor_data_folder = "test_pipeline_indoor2"
+# )

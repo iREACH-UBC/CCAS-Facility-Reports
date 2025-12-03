@@ -4,8 +4,10 @@ params:
   month: NULL
   location: NULL
   includes_time_change: NULL
-  start_date_char: NULL
-  end_date_char: NULL
+  start_date_char_outdoors: NULL
+  start_date_char_indoors: NULL
+  end_date_char_outdoors: NULL
+  end_date_char_indoors: NULL
   facility_photo_dir: NULL
   outdoor_dataset: NULL
   indoor_dataset: NULL
@@ -176,10 +178,10 @@ indoor_data_24hr_avg$AQHI <- round(indoor_data_24hr_avg$AQHI)
 
 # Calculate sensor uptime
 outdoor_uptime <- get_sensor_uptime(
-  outdoor_data, params$start_date_char, params$end_date_char
+  outdoor_data, params$start_date_char_outdoors, params$end_date_char_outdoors
 )
 indoor_uptime <- get_sensor_uptime(
-  indoor_data, params$start_date_char, params$end_date_char
+  indoor_data, params$start_date_char_indoors, params$end_date_char_indoors
 )
 ```
 
