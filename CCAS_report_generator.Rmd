@@ -3,7 +3,6 @@ params:
   year: NULL
   month: NULL
   location: NULL
-  includes_time_change: NULL
   start_date_char_outdoors: NULL
   start_date_char_indoors: NULL
   end_date_char_outdoors: NULL

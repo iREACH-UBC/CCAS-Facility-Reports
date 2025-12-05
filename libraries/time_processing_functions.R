@@ -18,7 +18,7 @@ get_month_start_end_dates <- function(month_int, year) {
   start_date <- sprintf("%s-%s-01 00:00:00", year, month_num_char)
   month_abbrev <- month.abb[month_int]
   days_in_month <- lubridate::days_in_month(
-    lubridate::ymd(start_date)
+    lubridate::ymd(sub(" .*", "", start_date))
   )[[month_abbrev]]
   end_date <- sprintf("%s-%s-%s 23:45:00", year, month_num_char, days_in_month)
 
@@ -39,6 +39,11 @@ get_month_start_end_dates <- function(month_int, year) {
 shift_timezones_at_time_change <- function(
   dates, index_b4_change, timezone_b4, timezone_after, final_timezone
 ) {
+  if (index_b4_change <= 0 || index_b4_change >= length(dates)) {
+    stop(paste("Index is out of range. Index must be greater than 0",
+      "and smaller than the length of the dataset"
+    ))
+  }
   dates_b4 <- lubridate::force_tz(
     dates[1:index_b4_change], tzone = timezone_b4
   )
@@ -90,13 +95,11 @@ get_time_change_date <- function(month_int, year_int) {
 }
 
 
-#' Sets timezone of dates to PST if the data includes a time change.
+#' Sets timezone of dates to PST if data in a time change month.
 #'  Sets timezone to either PST or PDT otherwise.
 #'
 #' @param dates Dates in POSIX format. If characters are read to
 #'  POSIX times here, they must have YYYY-MM-DD HH:MM:SS format.
-#' @param data_includes_time_change Boolean representing if a time
-#'  change occurs within dates, AND if this time is in month_int.
 #' @param month_int Integer representing month.
 #' @param year_int Integer representing year.
 #' @param dates_in_utc Boolean representing if the dates are in UTC.
@@ -105,7 +108,7 @@ get_time_change_date <- function(month_int, year_int) {
 set_timezone_from_month <- function(
   dates, month_int, year_int, dates_in_utc
 ) {
-  # Convert dates to local time if there is no time change
+  # Convert dates to local time if not in a time change month
   if (month_int != 3 && month_int != 11) {
     if (dates_in_utc) {
       dates <- as.POSIXct(dates, tz = "US/Pacific")
@@ -170,93 +173,19 @@ set_timezone_from_month <- function(
 }
 
 
-# set_timezone_from_month <- function(
-#   dates, data_includes_time_change, month_int,
-#   year_int, dates_in_utc
-# ) {
-#   # Calculate local time change date
-#   time_change_date <- as.POSIXct(get_time_change_date(
-#     month_int, year_int
-#   ), tz = "UTC")
-
-#     # November timezone processing
-#     if (month_int == 11) {
-#       if (dates_in_utc) {
-#         time_change_date <- time_change_date + lubridate::hours(7)
-#       }
-#       end_pdt_index <- which( # RAMPs have data overlap at time change
-#         dates[1:(length(dates) - 1)] > dates[2:length(dates)]
-#       )
-#       if (length(end_pdt_index) == 0) { # QAQ have no overlap, data overwritten
-#         end_pdt_index <- tail(which(dates < time_change_date), 1) #Bug if last date (i.e. no time change)
-#       }
-#       if (length(end_pdt_index) == 0 || end_pdt_index == length(dates)) {
-#         if (dates_in_utc) {
-#           dates <- shift_timezones_at_time_change(
-#             dates, end_pdt_index, "UTC", "UTC", "Etc/GMT+8"
-#           )
-#         } else {
-#           dates <- shift_timezones_at_time_change(
-#             dates, end_pdt_index, "Etc/GMT+7",
-#             "Etc/GMT+8", "Etc/GMT+8"
-#           )
-#         }
-#       }
-#       if (dates_in_utc) {
-#         dates <- shift_timezones_at_time_change(
-#           dates, end_pdt_index, "UTC", "UTC", "Etc/GMT+8"
-#         )
-#       } else {
-#         dates <- shift_timezones_at_time_change(
-#           dates, end_pdt_index, "Etc/GMT+7",
-#           "Etc/GMT+8", "Etc/GMT+8"
-#         )
-#       }
-#     } else if (month_int == 3) { # March timezone processing
-#       if (dates_in_utc) {
-#         time_change_date <- time_change_date + lubridate::hours(8)
-#       }
-#       end_pst_index <- tail(which(dates < time_change_date), 1)
-#       if (end_pst_index == length(dates)) {
-#         stop(paste(
-#           "Incorrect function argument to set_timezone_from_month,",
-#           "data does NOT include a time change"
-#         ))
-#       }
-#       if (dates_in_utc) {
-#         dates <- shift_timezones_at_time_change(
-#           dates, end_pst_index, "UTC", "UTC", "Etc/GMT+8"
-#         )
-#       } else {
-#         dates <- shift_timezones_at_time_change(
-#           dates, end_pst_index, "Etc/GMT+8",
-#           "Etc/GMT+7", "Etc/GMT+8"
-#         )
-#       }
-#     }
-#   } else { # Processing if no time change occurs
-#     if (dates_in_utc) {
-#       dates <- as.POSIXct(dates, tz = "US/Pacific")
-#     } else {
-#       dates <- lubridate::force_tz(
-#         dates, tzone = "US/Pacific"
-#       )
-#     }
-#   }
-#   invisible(dates)
-# }
-
-
 #' Removes components of datset outside of start/end dates.
 #'
-#' @param dataset_df Dataframe of sensor data.
-#' @param timezone Timezone marker (char) of dates in dataset_df.
+#' @param dataset_df Dataframe of sensor data. Must have a column of
+#'  dates with the column named date
 #' @param start_date_char Start date (char) in YYYY-MM-DD HH:MM:SS format.
+#'  Time portion can be omitted only if start date is at midnight.
 #' @param end_date_char End date (char) in YYYY-MM-DD HH:MM:SS format.
+#'  Time portion can be omitted only if end date is at midnight.
 #' @return Dataset but with out-of-range rows omitted.
 remove_out_of_range_data <- function(
-  dataset_df, timezone, start_date_char, end_date_char
+  dataset_df, start_date_char, end_date_char
 ) {
+  timezone <- lubridate::tz(dataset_df$date)
   start_date <- as.POSIXct(start_date_char, tz = timezone)
   end_date <- as.POSIXct(end_date_char, tz = timezone)
 
@@ -267,51 +196,4 @@ remove_out_of_range_data <- function(
     dataset_df <- dataset_df[-which(dataset_df$date > end_date), ]
   }
   dataset_df
-}
-
-# TODO- omit this function to make all reports in a month consistent?
-#' Checks if time change is present within start and stop
-#'  times for month of interest.
-#'
-#' @param month_int Integer representing month.
-#' @param start_date_char Start date (char) in YYYY-MM-DD HH:MM:SS format.
-#' @param end_date_char End date (char) in YYYY-MM-DD HH:MM:SS format.
-#' @param year_int Integer representing year.
-#' @return Boolean denoting if a time change is present
-data_includes_time_change <- function(
-  month_int, start_date_char, end_date_char, year_int
-) {
-  nov_int <- 11
-  mar_int <- 3
-  start_date <- as.POSIXct(start_date_char, tz = "UTC")
-  end_date <- as.POSIXct(end_date_char, tz = "UTC")
-
-  if (month_int == nov_int) {
-    # Get Nov time change date
-    time_change_date <- as.POSIXct(get_time_change_date(
-      nov_int, year_int
-    ), tz = "UTC")
-    # Check if time change is within data range
-    if (
-      (start_date <= time_change_date) && (
-        end_date >= time_change_date
-      )
-    ) {
-      return(TRUE)
-    }
-  } else if (month_int == mar_int) {
-    # Get Mar time change date
-    time_change_date <- as.POSIXct(get_time_change_date(
-      mar_int, year_int
-    ), tz = "UTC")
-    # Check if time change is within data range
-    if (
-      (start_date <= time_change_date) && (
-        end_date >= time_change_date
-      )
-    ) {
-      return(TRUE)
-    }
-  }
-  FALSE
 }

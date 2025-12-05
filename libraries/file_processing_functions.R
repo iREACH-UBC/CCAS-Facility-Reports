@@ -1,9 +1,13 @@
 library(dplyr)
 
-# Start and stop inclusive
-# Dates in "YYYY-MM-DD" format
-# sensor_id can be a char (ex. "2021") or number (ex. 2021)
-# Call on one sensor id at a time to avoid unexpected urls
+#' Gets raw urls of calibrated sensor data files from Github.
+#'
+#' @param start_date Start date (char, in YYYY-MM-DD format) of data file name.
+#'  Can be one date or a vector of dates.
+#' @param stop_date End date (char, in YYYY-MM-DD format) of data file name.
+#'  Can be one date or a vector of dates.
+#' @param sensor_id Char or int of sensor ID. One ID only per function call.
+#' @return Raw git url (char). Returns one url or a vector of urls.
 get_raw_git_urls <- function(start_date, stop_date, sensor_id) {
   start_date <- as.Date(start_date)
   stop_date <- as.Date(stop_date)
@@ -19,11 +23,17 @@ get_raw_git_urls <- function(start_date, stop_date, sensor_id) {
 
   sprintf(paste0(
     "https://raw.githubusercontent.com/iREACH-UBC/CCAS_Dashboard/refs/heads/",
-  "main/calibrated_data/%s/%s_calibrated_%s_to_%s.csv"),
-  sensor_id, sensor_id, start_dates_char, end_dates_char)
+    "main/calibrated_data/%s/%s_calibrated_%s_to_%s.csv"
+  ), sensor_id, sensor_id, start_dates_char, end_dates_char)
 }
 
 
+#' Gets one dataframe of sensor data from raw git urls of calibrated
+#'  sensor data.
+#'
+#' @param raw_git_urls Vector or list of raw git urls (char) for one sensor.
+#' @return One dataframe with sensor data. Last day's data from each url-file
+#'  is saved to this dataframe.
 get_df_from_raw_git_urls <- function(raw_git_urls) {
   truncated_df_list <- list()
 
@@ -58,10 +68,17 @@ get_df_from_raw_git_urls <- function(raw_git_urls) {
 }
 
 
-get_aqhi_column <- function(dataset){
+#' Gets AQHI values given sensor data. Used for sensor dataframes
+#'  missing an AQHI column.
+#'
+#' @param dataset A dataframe of calibrated sensor data. Must have
+#'  date, NO2, O3, and PM2.5 columns.
+#' @return Vector of AQHI values (int). Each index of the vector
+#'  corresponds to a row in the dataset.
+get_aqhi_column <- function(dataset) {
   # Helper function that takes higher of two AQHI calculations
   apply_aqhi_ceiling <- function(aqhi_vec, pm25_1h_vec) {
-    pmax(round(aqhi_vec), ceiling(pm25_1h_vec / 10)) |> as.integer()
+    pmax(aqhi_vec, ceiling(pm25_1h_vec / 10)) |> round()
   }
   # Take pollutant and PM averages
   NO2_3h   <- zoo::rollapply(
@@ -91,7 +108,7 @@ get_aqhi_column <- function(dataset){
 #'
 #' @param month_char Full month name the data is from.
 #' @param year_int Year the data is from.
-#' @param location_folder Outdoor or indoor data file name.
+#' @param location_folder Outdoor or indoor data folder name.
 #' @param processed_sensor_data_df Processed dataframe of sensor data.
 #' @param timezone "US/Pacific" if no time change in data,
 #'  "Etc/GMT+8" otherwise.
@@ -120,42 +137,3 @@ save_sensor_data_csv <- function(
     location_folder, month_folder, sprintf("%s.csv", sensor_id)
   )
 }
-
-# times <- c(
-#   "2025-11-02 00:00:00",
-#   "2025-11-02 00:15:00",
-#   "2025-11-02 00:30:00",
-#   "2025-11-02 00:45:00",
-#   "2025-11-02 01:00:00",
-#   "2025-11-02 01:15:00",
-#   "2025-11-02 01:30:00",
-#   "2025-11-02 01:45:00",
-#   "2025-11-02 01:00:00",
-#   "2025-11-02 01:15:00",
-#   "2025-11-02 01:30:00",
-#   "2025-11-02 01:45:00",
-#   "2025-11-02 02:00:00",
-#   "2025-11-02 02:15:00",
-#   "2025-11-02 02:30:00",
-#   "2025-11-02 02:45:00",
-#   "2025-11-02 03:00:00"
-# )
-# times <- c(
-#   "2025-11-03 00:00:00",
-#   "2025-11-03 00:15:00",
-#   "2025-11-03 00:30:00",
-#   "2025-11-03 00:45:00",
-#   "2025-11-03 01:00:00",
-#   "2025-11-03 01:15:00",
-#   "2025-11-03 01:30:00",
-#   "2025-11-03 01:45:00",
-#   "2025-11-03 01:00:00",
-#   "2025-11-03 01:15:00",
-#   "2025-11-03 01:30:00",
-#   "2025-11-03 01:45:00",
-#   "2025-11-03 02:00:00",
-#   "2025-11-03 02:15:00",
-#   "2025-11-03 02:30:00",
-#   "2025-11-03 02:45:00",
-#   "2025-11-03 03:00:00"
-# )

@@ -18,19 +18,37 @@ end_date_char <- month_dates[["month_end_date"]]
 # End user adjustable parameters
 
 sensor_data <- jsonlite::fromJSON(json_file_dir)
-includes_time_change <- data_includes_time_change(
-  month_int, start_date_char, end_date_char, year_int
-)
 
-# location must match chosen location from sensor_data json
-# Char dates must be in YYYY-MM-DD HH:MM:SS format
+#' Generates indoor and outdoor datasets from Git, saves them to csvs,
+#' and uses them to produce a CCAS facility report.
+#'
+#' @param start_date_char_outdoors Char representing target start date in
+#'  outdoor dataset, in YYYY-MM-DD HH:MM:SS format.
+#' @param end_date_char_outdoors Char representing target end date in
+#'  outdoor dataset, in YYYY-MM-DD HH:MM:SS format.
+#' @param start_date_char_indoors Char representing target start date in
+#'  indoor dataset, in YYYY-MM-DD HH:MM:SS format.
+#' @param end_date_char_indoors Char representing target end date in
+#'  indoor dataset, in YYYY-MM-DD HH:MM:SS format.
+#' @param outdoor_sensor_id Char or int of outdoor sensor ID.
+#' @param indoor_sensor_id Char or int of indoor sensor ID.
+#' @param location Name of facility location (char). Name
+#'  must match the location name in sensor data json file.
+#' @param facility_photo_directory Directory (char) where photo of facility
+#'  is stored. Directory includes photo file.
+#' @param month_char Full name of month (char).
+#' @param year_int Integer representing year.
+#' @param outdoor_csv_folder Name (char) of outdoor sensor data csv folder.
+#' @param indoor_csv_folder Name (char) of indoor sensor data csv folder.
+#' @param report_folder_directory Directory (char) where report is stored.
+#'  Directory does not include report file.
 get_report_from_git_csvs <- function(
   start_date_char_outdoors, end_date_char_outdoors,
   start_date_char_indoors, end_date_char_indoors,
   outdoor_sensor_id, indoor_sensor_id,
   location, facility_photo_directory,
-  month_char, year_int, includes_time_change,
-  outdoor_csv_folder, indoor_csv_folder, report_folder_directory
+  month_char, year_int, outdoor_csv_folder,
+  indoor_csv_folder, report_folder_directory
 ) {
   month_int <- match(month_char, month.name)
   month_abbrev <- month.abb[month_int]
@@ -39,7 +57,7 @@ get_report_from_git_csvs <- function(
   if (!(dir.exists(report_folder_directory))) {
     dir.create(report_folder_directory)
   }
-  if (includes_time_change) {
+  if ((month_char == "March") || (month_char == "November")) {
     timezone <- "Etc/GMT+8"
   } else {
     timezone <- "US/Pacific"
@@ -68,7 +86,7 @@ get_report_from_git_csvs <- function(
 
     if (!(is.null(sensor_data_df))) {
       processed_sensor_data_df <- process_sensor_data_df(
-        includes_time_change, sensor_data_df, month_int, year_int,
+        sensor_data_df, month_int, year_int,
         start_date_char, end_date_char
       )
       if (sensor_ids[[i]] == outdoor_sensor_id) {
@@ -103,7 +121,6 @@ get_report_from_git_csvs <- function(
       start_date_char_indoors = start_date_char_indoors,
       end_date_char_outdoors = end_date_char_outdoors,
       end_date_char_indoors = end_date_char_indoors,
-      includes_time_change = includes_time_change,
       facility_location_char = chartr("_", " ", location),
       facility_photo_directory = facility_photo_directory, # File inclusive
       outdoor_file_df = outdoor_data_df,
@@ -120,10 +137,28 @@ get_report_from_git_csvs <- function(
   }
 }
 
-# Char dates in YYYY-MM-DD or YYYY-MM-DD HH:MM:SS format
+
+#' Generates indoor and outdoor datasets from Git, saves them to csvs,
+#'  and uses them to produce CCAS facility reports. Creates reports for all
+#'  locations in sensor data json that have indoor/outdoor data files for
+#'  the month available on Git.
+#'
+#' @param month_char Full name of month (char).
+#' @param year_int Integer representing year.
+#' @param start_date_char Char representing target start date in
+#'  sensor datasets, in YYYY-MM-DD HH:MM:SS format.
+#' @param end_date_char Char representing target end date in
+#'  sensor datasets, in YYYY-MM-DD HH:MM:SS format.
+#' @param sensor_metadata Data (list) read from sensor json file.
+#' @param overall_report_folder_name Name (char) of facility reports folder.
+#' @param overall_photos_folder_name Name (char) of facility photos folder.
+#' @param overall_outdoor_data_folder Name (char) of
+#'  outdoor sensor data csv folder.
+#' @param overall_indoor_data_folder Name (char) of
+#'  indoor sensor data csv folder.
 get_all_reports_from_git_csvs <- function(
-  month_char, year_int, includes_time_change,
-  start_date_char, end_date_char, sensor_metadata,
+  month_char, year_int, start_date_char,
+  end_date_char, sensor_metadata,
   overall_report_folder_name,
   overall_photos_folder_name,
   overall_outdoor_data_folder,
@@ -155,7 +190,6 @@ get_all_reports_from_git_csvs <- function(
         overall_photos_folder_name, location_photo_file
       ),
       month_char = month_char, year_int = year_int,
-      includes_time_change = includes_time_change,
       outdoor_csv_folder = overall_outdoor_data_folder,
       indoor_csv_folder = overall_indoor_data_folder,
       report_folder_directory = report_folder
@@ -193,13 +227,12 @@ get_report_from_csvs <- function(
         start_date_char = start_date_char,
         end_date_char = end_date_char,
         csv_dates_in_utc = dates_in_utc[[i]],
-        data_includes_time_change = includes_time_change
       )
     }
   }
   process_pollutant_data_df(
     pollutant_df, start_date_char, end_date_char, csv_dates_in_utc,
-    data_includes_time_change, month_int, year_int
+    month_int, year_int
   )
 
   generate_one_report(
@@ -207,7 +240,6 @@ get_report_from_csvs <- function(
     month_char,
     start_date_char,
     end_date_char,
-    includes_time_change,
     facility_location_char,
     facility_photo_directory, # File inclusive
     outdoor_file_df,
@@ -223,7 +255,7 @@ get_report_from_csvs <- function(
 # Csv dates are never in utc if data came from git. May be in utc otherwise.
 get_df_from_csv <- function(
   csv_is_from_git, csv_is_processed,
-  csv_directory_char, includes_time_change,
+  csv_directory_char,
   month_int, year_int, start_date_char,
   end_date_char, csv_dates_in_utc
 ) {
@@ -232,7 +264,7 @@ get_df_from_csv <- function(
   if (!(csv_is_processed)) {
     if (csv_is_from_git) {
       sensor_data_df <- process_sensor_data_df(
-        includes_time_change, sensor_data_df,
+        sensor_data_df,
         month_int, year_int,
         start_date_char, end_date_char
       )
@@ -240,8 +272,7 @@ get_df_from_csv <- function(
       sensor_data_df <- process_pollutant_data_df(
         sensor_data_df, start_date_char,
         end_date_char, csv_dates_in_utc,
-        includes_time_change, month_int,
-        year_int
+        month_int, year_int
       )
     }
   }

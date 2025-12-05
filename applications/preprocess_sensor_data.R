@@ -1,9 +1,23 @@
-source("libraries/helper_functions.R")
+source("libraries/time_processing_functions.R")
+source("libraries/file_processing_functions.R")
 
-# Used on dfs obtained from reading from github (local time)
-# Assumes all column types present, including AQHI
+#' Processes calibrated sensor data (from Git) to a form usable by report
+#'  generator. Use this processing function if your dataframe came from git
+#'  data collection pipeline.
+#'
+#' @param calibrated_dataset_df A dataframe of calibrated sensor data
+#'  from git. Dataframe should have no date overlaps aside from
+#'  time change. Assumes all pollutant column types are present, including AQHI,
+#'  and that all dates are in local Vancouver time (timestamp may differ).
+#' @param month_int Integer representing month of year.
+#' @param year_int Integer representing year.
+#' @param start_date_char Char representing target start date in dataset,
+#'  in YYYY-MM-DD HH:MM:SS format.
+#' @param end_date_char Char representing target end date in dataset,
+#'  in YYYY-MM-DD HH:MM:SS format.
+#' @return Dataframe of processed sensor data.
 process_sensor_data_df <- function(
-  data_includes_time_change, calibrated_dataset_df, month_int, year_int,
+  calibrated_dataset_df, month_int, year_int,
   start_date_char, end_date_char
 ) {
   pollutant_data <- calibrated_dataset_df[c(
@@ -17,38 +31,48 @@ process_sensor_data_df <- function(
 
   # Get consistent timezone for all dates
   pollutant_data$date <- set_timezone_from_month(
-    pollutant_data$date, data_includes_time_change, month_int, year_int,
+    pollutant_data$date, month_int, year_int,
     FALSE # Git data is in local time
   )
   # Remove dates before start and after end dates
-  final_timezone <- lubridate::tz(pollutant_data$date[1])
   pollutant_data <- remove_out_of_range_data(
-    pollutant_data, final_timezone, start_date_char, end_date_char
+    pollutant_data, start_date_char, end_date_char
   )
   pollutant_data #Implicit return
 }
 
-# Assumes that only date, pollutant and PM2.5 rows included in dataframe
-# Assumes DATE has already been renamed to date
-# Assumes dates always have UTC timestamp
-# Assumes dates are in UTC if csv_dates_in_utc is true
-# Assumes dates are in local time but with UTC timestamp otherwise
-# Start and end date in YYYY-MM-DD format
+
+#' Processes manually calibrated sensor data to a form usable by
+#'  report generator. Use this processing function if your dataframe
+#'  did not come from git data collection pipeline.
+#'
+#' @param calibrated_dataset_df A dataframe of manually calibrated sensor data.
+#'  Dataframe should have no date overlaps aside from time change. Assumes AQHI
+#'  column is missing from dataset. Dates must be in UTC or local time.
+#' @param start_date_char Char representing target start date in dataset,
+#'  in YYYY-MM-DD HH:MM:SS format.
+#' @param end_date_char Char representing target end date in dataset,
+#'  in YYYY-MM-DD HH:MM:SS format.
+#' @param df_dates_in_utc TRUE if dataset dates are in UTC, FALSE if dates
+#'  are in local time. Note that timezone stamp may read UTC even if dates
+#'  are in local time (ex. if readr::read_csv is used).
+#' @param month_int Integer representing month of year.
+#' @param year_int Integer representing year.
+#' @return Dataframe of processed sensor data.
 process_pollutant_data_df <- function(
-  pollutant_df, start_date_char, end_date_char, csv_dates_in_utc,
-  data_includes_time_change, month_int, year_int
+  pollutant_df, start_date_char, end_date_char,
+  df_dates_in_utc, month_int, year_int
 ) {
   # Extra processing if date is read as a character
-  if(typeof(pollutant_df$date) != "double") {
+  if (typeof(pollutant_df$date) != "double") {
     # Add time to date if missing
     pollutant_df$date <- ifelse(
       grepl(":", pollutant_df$date),
       pollutant_df$date,
-      paste0(pollutant_df$date, " 00:00:00") # Remove SS if openair complains
+      paste0(pollutant_df$date, " 00:00:00")
     )
     # Convert time to POSIX w/ UTC timestamp
-    # Done to be consistent with typical read_csv output
-    # Done in case read.csv used
+    # Done to be consistent with typical read_csv output in case read.csv used
     pollutant_df$date <- as.POSIXct(pollutant_df$date, tz = "UTC")
   }
   # Add AQHI column
@@ -56,13 +80,12 @@ process_pollutant_data_df <- function(
 
   # Set dates to consistent timezone
   pollutant_df$date <- set_timezone_from_month(
-    pollutant_df$date, data_includes_time_change, month_int, year_int,
-    csv_dates_in_utc
+    pollutant_df$date, month_int, year_int, df_dates_in_utc
   )
   # Remove data before start and after end dates
   final_timezone <- lubridate::tz(pollutant_df$date[1])
   pollutant_df <- remove_out_of_range_data(
-    pollutant_df, final_timezone, start_date_char, end_date_char
+    pollutant_df, start_date_char, end_date_char
   )
   invisible(pollutant_df)
 }
