@@ -1,5 +1,3 @@
-source("libraries/helper_functions.R")
-
 #' Generates a CCAS facility report from outdoor and indoor datasets.
 #'
 #' @param year_int Integer representing year.

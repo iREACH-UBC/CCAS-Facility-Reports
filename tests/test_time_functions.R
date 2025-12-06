@@ -1,15 +1,12 @@
-
 options(testthat.edition = 3)
-library(testthat)
-library(patrick)
-context("Test time-related functions")
+testthat::context("Test time-related functions")
 source("libraries/time_processing_functions.R")
 
 
 # 6 tests
 patrick::with_parameters_test_that(
   desc_stub = "Test get_month_start_end_dates", code = {
-    expect_equal(
+    testthat::expect_equal(
       get_month_start_end_dates(month, year),
       list(
         month_start_date = expected_start,
@@ -85,7 +82,7 @@ patrick::with_parameters_test_that(
     )
   ),
   code = {
-    expect_equal(
+    testthat::expect_equal(
       shift_timezones_at_time_change(
         dates_repeated, index_b4_change,
         timezone_b4, timezone_after, final_timezone
@@ -111,7 +108,7 @@ patrick::with_parameters_test_that(
     ), tz = "UTC"), simplify = FALSE), # Change if you add/delete a case
   ),
   code = {
-    expect_error(
+    testthat::expect_error(
       shift_timezones_at_time_change(
         dates_repeated, index_b4_change,
         timezone_b4, timezone_after, final_timezone
@@ -260,34 +257,34 @@ testthat::test_that(desc = "Test set_timezone_from_month", code = {
   ), tz = "US/Pacific")
 
   # Test that the result is the correct value
-  expect_equal(expected_nov_before_change, set_timezone_from_month(
+  testthat::expect_equal(expected_nov_before_change, set_timezone_from_month(
     times_nov_before_change, 11, 2025, FALSE
   ))
-  expect_equal(expected_nov_after_change, set_timezone_from_month(
+  testthat::expect_equal(expected_nov_after_change, set_timezone_from_month(
     times_nov_after_change, 11, 2025, FALSE
   ))
-  expect_equal(expected_mar_before_change, set_timezone_from_month(
+  testthat::expect_equal(expected_mar_before_change, set_timezone_from_month(
     times_mar_before_change, 3, 2025, FALSE
   ))
-  expect_equal(expected_mar_after_change, set_timezone_from_month(
+  testthat::expect_equal(expected_mar_after_change, set_timezone_from_month(
     times_mar_after_change, 3, 2025, FALSE
   ))
-  expect_equal(expected_nov_time_change_ramp, set_timezone_from_month(
+  testthat::expect_equal(expected_nov_time_change_ramp, set_timezone_from_month(
     times_nov_time_change_ramp, 11, 2025, FALSE
   ))
-  expect_equal(expected_nov_time_change_qaq, set_timezone_from_month(
+  testthat::expect_equal(expected_nov_time_change_qaq, set_timezone_from_month(
     times_nov_time_change_qaq, 11, 2025, FALSE
   ))
-  expect_equal(expected_mar_time_change, set_timezone_from_month(
+  testthat::expect_equal(expected_mar_time_change, set_timezone_from_month(
     times_mar_time_change, 3, 2025, FALSE
   ))
-  expect_equal(expected_mar_time_change_utc, set_timezone_from_month(
+  testthat::expect_equal(expected_mar_time_change_utc, set_timezone_from_month(
     times_mar_time_change_utc, 3, 2025, TRUE
   ))
-  expect_equal(expected_sept, set_timezone_from_month(
+  testthat::expect_equal(expected_sept, set_timezone_from_month(
     times_sept, 9, 2025, FALSE
   ))
-  expect_equal(expected_sept_utc, set_timezone_from_month(
+  testthat::expect_equal(expected_sept_utc, set_timezone_from_month(
     times_sept_utc, 9, 2025, TRUE
   ))
 })
@@ -339,7 +336,7 @@ patrick::with_parameters_test_that(
     )
   ),
   code = {
-    expect_equal(
+    testthat::expect_equal(
       remove_out_of_range_data(
         sample_dfs, start_dates, end_dates
       )$date, expected_dates

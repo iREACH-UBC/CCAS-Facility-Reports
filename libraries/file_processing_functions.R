@@ -1,12 +1,8 @@
-library(dplyr)
-
 #' Gets raw urls of calibrated sensor data files from Github.
 #'
-#' @param start_date Start date (char, in YYYY-MM-DD format) of data file name.
-#'  Can be one date or a vector of dates.
-#' @param stop_date End date (char, in YYYY-MM-DD format) of data file name.
-#'  Can be one date or a vector of dates.
-#' @param sensor_id Char or int of sensor ID. One ID only per function call.
+#' @param start_date Start date (char, in YYYY-MM-DD format) of data date range.
+#' @param stop_date End date (char, in YYYY-MM-DD format) of data date range.
+#' @param sensor_id Char or int of a sensor ID.
 #' @return Raw git url (char). Returns one url or a vector of urls.
 get_raw_git_urls <- function(start_date, stop_date, sensor_id) {
   start_date <- as.Date(start_date)

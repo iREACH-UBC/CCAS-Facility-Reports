@@ -1,24 +1,3 @@
-# TODO: change source path after moving files around
-source("applications/generate_report.R")
-source("applications/preprocess_sensor_data.R")
-source("libraries/helper_functions.R")
-
-# TODO: delete non-functions after testing
-
-# Get metadata used in processing
-# Assumes same start/end dates for each sensor
-# Start user adjustable parameters
-json_file_dir <- "sensor_data.json"
-month_char <- "October"
-month_int <- match(month_char, month.name) # Do not change
-year_int <- 2025
-month_dates <- get_month_start_end_dates(month_int, year_int)
-start_date_char <- month_dates[["month_start_date"]]
-end_date_char <- month_dates[["month_end_date"]]
-# End user adjustable parameters
-
-sensor_data <- jsonlite::fromJSON(json_file_dir)
-
 #' Generates indoor and outdoor datasets from Git, saves them to csvs,
 #' and uses them to produce a CCAS facility report.
 #'
@@ -76,16 +55,16 @@ get_report_from_git_csvs <- function(
   )
 
   for (i in seq_along(sensor_ids)) {
-    raw_urls <- get_raw_git_urls(
+    raw_urls <- file_processor$get_raw_git_urls(
       start_date = start_dates[[i]],
       stop_date = end_dates[[i]],
       sensor_id = sensor_ids[[i]]
     )
     print(sprintf("Getting data files from Git for sensor %s", sensor_ids[[i]]))
-    sensor_data_df <- get_df_from_raw_git_urls(raw_urls) # Dates in POSIXct
+    sensor_data_df <- file_processor$get_df_from_raw_git_urls(raw_urls)
 
     if (!(is.null(sensor_data_df))) {
-      processed_sensor_data_df <- process_sensor_data_df(
+      processed_sensor_data_df <- sensor_data_processor$process_sensor_data_df(
         sensor_data_df, month_int, year_int,
         start_date_char, end_date_char
       )
@@ -97,7 +76,7 @@ get_report_from_git_csvs <- function(
         indoor_data_df <- processed_sensor_data_df
       }
       print(sprintf("Saving data to csv for sensor %s", sensor_ids[[i]]))
-      save_sensor_data_csv(
+      file_processor$save_sensor_data_csv(
         month_char, year_int, location_folder,
         processed_sensor_data_df, timezone,
         sensor_ids[[i]]
@@ -114,7 +93,7 @@ get_report_from_git_csvs <- function(
     print(sprintf(
       "Generating facility report for %s", chartr("_", " ", location)
     ))
-    generate_one_report(
+    report_generator$generate_one_report(
       year_int = year_int,
       month_char = month_char,
       start_date_char_outdoors = start_date_char_outdoors,
@@ -196,114 +175,3 @@ get_all_reports_from_git_csvs <- function(
     )
   }
 }
-
-# Use when you cannot get data for both indoor and outdoor from Git
-# Csv from git means csv came from git data collection pipeline
-# TODO: make into two functions instead!!
-get_report_from_csvs <- function(
-  year_int, month_char, start_date_char,
-  end_date_char, includes_time_change,
-  location_char, outdoor_csv_dir,
-  indoor_csv_dir, outdoor_csv_from_git,
-  indoor_csv_from_git, outdoor_dates_in_utc,
-  indoor_dates_in_utc
-) {
-  csv_dirs <- c(outdoor_csv_dir, indoor_csv_dir)
-  csvs_from_git <- c(outdoor_csv_from_git, indoor_csv_from_git)
-  dates_in_utc <- c(outdoor_dates_in_utc, indoor_dates_in_utc)
-  processed_dfs <- c(NULL, NULL)
-
-  for (i in seq_along(csv_dirs)) {
-    sensor_data <- readr::read_csv(csv_dirs[[i]])
-
-    if (csvs_from_git[[i]]) {
-      processed_dfs[[i]] <- process_sensor_data_df(
-        #TODO
-      )
-    } else {
-      processed_dfs[[i]] <- process_pollutant_data_df(
-        #TODO
-        pollutant_df = sensor_data[[i]],
-        start_date_char = start_date_char,
-        end_date_char = end_date_char,
-        csv_dates_in_utc = dates_in_utc[[i]],
-      )
-    }
-  }
-  process_pollutant_data_df(
-    pollutant_df, start_date_char, end_date_char, csv_dates_in_utc,
-    month_int, year_int
-  )
-
-  generate_one_report(
-    year_int,
-    month_char,
-    start_date_char,
-    end_date_char,
-    facility_location_char,
-    facility_photo_directory, # File inclusive
-    outdoor_file_df,
-    indoor_file_df,
-    output_file_name,
-    output_file_directory # File exclusive
-  )
-}
-
-# Use when you cannot get both indoor and outdoor sensor data from Git
-# Csv from git means csv came from git data collection pipeline
-# Csv is processed if it has date, pollutant data, and AQHI only
-# Csv dates are never in utc if data came from git. May be in utc otherwise.
-get_df_from_csv <- function(
-  csv_is_from_git, csv_is_processed,
-  csv_directory_char,
-  month_int, year_int, start_date_char,
-  end_date_char, csv_dates_in_utc
-) {
-  sensor_data_df <- readr::read_csv(csv_directory_char)
-
-  if (!(csv_is_processed)) {
-    if (csv_is_from_git) {
-      sensor_data_df <- process_sensor_data_df(
-        sensor_data_df,
-        month_int, year_int,
-        start_date_char, end_date_char
-      )
-    } else {
-      sensor_data_df <- process_pollutant_data_df(
-        sensor_data_df, start_date_char,
-        end_date_char, csv_dates_in_utc,
-        month_int, year_int
-      )
-    }
-  }
-  sensor_data_df
-}
-
-# Testing functions
-
-# get_report_from_git_csvs(
-#   start_date_char = start_date_char,
-#   end_date_char = end_date_char,
-#   outdoor_sensor_id = "2032",
-#   indoor_sensor_id = "2049",
-#   location = "Squamish_Nation_Totem_Hall",
-#   facility_photo_directory = "facility_photos/SquamishNationTotemHall_Photo.png",
-#   month_char = month_char, year_int = year_int,
-#   includes_time_change = includes_time_change,
-#   outdoor_csv_folder = "test_pipeline_outdoor2",
-#   indoor_csv_folder = "test_pipeline_indoor2",
-#   report_folder_directory = "test_pipeline_reports2"
-# )
-
-# get_all_reports_from_git_csvs(
-#   month_char = month_char,
-#   year_int = year_int,
-#   includes_time_change = includes_time_change,
-#   start_date_char = start_date_char,
-#   end_date_char = end_date_char,
-#   sensor_metadata = sensor_data,
-#   overall_report_folder_name = "test_pipeline_reports2",
-#   overall_photos_folder_name = "facility_photos",
-#   overall_outdoor_data_folder = "test_pipeline_outdoor2",
-#   overall_indoor_data_folder = "test_pipeline_indoor2"
-# )

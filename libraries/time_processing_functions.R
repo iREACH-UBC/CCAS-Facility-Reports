@@ -100,10 +100,12 @@ get_time_change_date <- function(month_int, year_int) {
 #'
 #' @param dates Dates in POSIX format. If characters are read to
 #'  POSIX times here, they must have YYYY-MM-DD HH:MM:SS format.
+#'  Dates must have UTC timestamp even if they are in local time.
 #' @param month_int Integer representing month.
 #' @param year_int Integer representing year.
 #' @param dates_in_utc Boolean representing if the dates are in UTC.
-#'  Assumes dates are in local Vancouver time if false.
+#'  Assumes dates are in local Vancouver time if false. Note that
+#'  dates may be in local time even if POSIX timestamp is in UTC.
 #' @return Dates (POSIX) in PST or PDT.
 set_timezone_from_month <- function(
   dates, month_int, year_int, dates_in_utc
@@ -129,7 +131,7 @@ set_timezone_from_month <- function(
       dates[1:(length(dates) - 1)] > dates[2:length(dates)]
     )
     if (length(index_b4_change) == 0) { # QAQ have no overlap, overwrite data
-      index_b4_change <- tail(which(dates < time_change_date), 1)
+      index_b4_change <- tail(which(dates < time_change_date), 1) #Bug if df dates not UTC
     }
 
     # Get timezones before and after time change
