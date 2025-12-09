@@ -54,3 +54,5 @@ generate_one_report <- function(
   )
   unlink("*.log") # Delete log files
 }
+
+export("generate_one_report")

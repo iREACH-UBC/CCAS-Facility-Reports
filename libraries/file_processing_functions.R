@@ -28,8 +28,8 @@ get_raw_git_urls <- function(start_date, stop_date, sensor_id) {
 #'  sensor data.
 #'
 #' @param raw_git_urls Vector or list of raw git urls (char) for one sensor.
-#' @return One dataframe with sensor data. Last day's data from each url-file
-#'  is saved to this dataframe.
+#' @return One dataframe with sensor data if available. Last day's data from each url-file
+#'  is saved to this dataframe. If sensor data unavailable, returns NULL.
 get_df_from_raw_git_urls <- function(raw_git_urls) {
   truncated_df_list <- list()
 
@@ -60,7 +60,7 @@ get_df_from_raw_git_urls <- function(raw_git_urls) {
       ]] <- as.data.frame(one_day_list)
     }
   }
-  bind_rows(truncated_df_list)
+  dplyr::bind_rows(truncated_df_list)
 }
 
 
@@ -133,3 +133,10 @@ save_sensor_data_csv <- function(
     location_folder, month_folder, sprintf("%s.csv", sensor_id)
   )
 }
+
+export(
+  "get_raw_git_urls",
+  "get_df_from_raw_git_urls",
+  "get_aqhi_column",
+  "save_sensor_data_csv"
+)

@@ -1,3 +1,11 @@
+sensor_data_processor <- modules::use(
+  "libraries/preprocess_sensor_data.R"
+)
+file_processor <- modules::use(
+  "libraries/file_processing_functions.R"
+)
+report_generator <- modules::use("libraries/generate_report.R")
+
 #' Generates indoor and outdoor datasets from Git, saves them to csvs,
 #' and uses them to produce a CCAS facility report.
 #'
@@ -66,7 +74,7 @@ get_report_from_git_csvs <- function(
     if (!(is.null(sensor_data_df))) {
       processed_sensor_data_df <- sensor_data_processor$process_sensor_data_df(
         sensor_data_df, month_int, year_int,
-        start_date_char, end_date_char
+        start_dates[[i]], end_dates[[i]]
       )
       if (sensor_ids[[i]] == outdoor_sensor_id) {
         location_folder <- outdoor_csv_folder
@@ -152,7 +160,7 @@ get_all_reports_from_git_csvs <- function(
   )
 
   for (location in names(sensor_metadata)) {
-    location_data <- sensor_data[[location]]
+    location_data <- sensor_metadata[[location]]
     outdoor_sensor_id <- location_data[["outdoor_sensor_ID"]]
     indoor_sensor_id <- location_data[["indoor_sensor_ID"]]
     location_photo_file <- location_data[["photo_file_name"]]
@@ -175,3 +183,8 @@ get_all_reports_from_git_csvs <- function(
     )
   }
 }
+
+export(
+  "get_report_from_git_csvs",
+  "get_all_reports_from_git_csvs"
+)

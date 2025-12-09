@@ -10,7 +10,6 @@ add_flag <- function(
     decription = descriptions
   )
   flags_df <- bind_rows(flags_df, new_flag)
-  return(flags_df)
 }
 
 flag_na_readings <- function(
@@ -40,7 +39,6 @@ flag_na_readings <- function(
       )
     }
   }
-  return(flags_df)
 }
 
 flag_negative_values <- function(
@@ -75,7 +73,6 @@ flag_negative_values <- function(
       )
     }
   }
-  return(flags_df)
 }
 
 # Take daily and hourly average once in flag script

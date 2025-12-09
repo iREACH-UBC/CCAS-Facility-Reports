@@ -183,7 +183,7 @@ set_timezone_from_month <- function(
 #'  Time portion can be omitted only if start date is at midnight.
 #' @param end_date_char End date (char) in YYYY-MM-DD HH:MM:SS format.
 #'  Time portion can be omitted only if end date is at midnight.
-#' @return Dataset but with out-of-range rows omitted.
+#' @return Dataset with out-of-range rows omitted.
 remove_out_of_range_data <- function(
   dataset_df, start_date_char, end_date_char
 ) {
@@ -199,3 +199,11 @@ remove_out_of_range_data <- function(
   }
   dataset_df
 }
+
+export(
+  "get_month_start_end_dates",
+  "shift_timezones_at_time_change",
+  "get_time_change_date",
+  "set_timezone_from_month",
+  "remove_out_of_range_data"
+)

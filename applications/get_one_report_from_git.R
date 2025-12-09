@@ -1,8 +1,12 @@
 # Gets outdoor and indoor data from Git and saves them to csvs.
 # Generates report with this data if available from Github.
 
+git_report_generator <- modules::use(
+  "applications/automate_reports_using_git.R",
+  reload = TRUE
+)
+
 # Start user adjustable parameters
-json_file_dir <- "sensor_data.json"
 month_char <- "October"
 year_int <- 2025
 start_date_char_outdoors <- "2025-10-01 00:00:00" # YYYY-MM-DD HH:MM:SS
@@ -14,9 +18,6 @@ indoor_sensor_id <- 2044
 location <- "Gillies_Bay_Public_Library" # Matches name in sensor json
 # End user adjustable parameters
 
-git_report_generator <- modules::use(
-  "applications/automate_reports_using_git.R"
-)
 git_report_generator$get_report_from_git_csvs(
   start_date_char_outdoors = start_date_char_outdoors,
   end_date_char_outdoors = end_date_char_outdoors,

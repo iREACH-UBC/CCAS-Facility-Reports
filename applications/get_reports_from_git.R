@@ -4,6 +4,11 @@
 # some sensors, those reports are not generated. All reports
 # are saved to facility_reports folder under corresponding month.
 
+git_report_generator <- modules::use(
+  "applications/automate_reports_using_git.R",
+  reload = TRUE
+)
+
 # Start user adjustable parameters
 # Assumes same start/end dates for each sensor
 json_file_dir <- "sensor_data.json"
@@ -15,9 +20,6 @@ start_date_char <- month_dates[["month_start_date"]]
 end_date_char <- month_dates[["month_end_date"]]
 # End user adjustable parameters
 
-git_report_generator <- modules::use(
-  "applications/automate_reports_using_git.R"
-)
 git_report_generator$get_all_reports_from_git_csvs(
   month_char = month_char,
   year_int = year_int,

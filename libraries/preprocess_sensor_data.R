@@ -125,5 +125,20 @@ get_processed_df_from_csv <- function(
         dates_in_utc, month_int, year_int
       )
     }
+  } else {
+    if (month_int == 3 || month_int == 11) {
+      df$date <- lubridate::force_tz(
+        df$date, tzone = "Etc/GMT+8"
+      )
+    } else {
+      df$date <- lubridate::force_tz(
+        df$date, tzone = "US/Pacific"
+      )
+    }
   }
 }
+
+export(
+  "process_sensor_data_df", "process_pollutant_data_df",
+  "get_processed_df_from_csv"
+)

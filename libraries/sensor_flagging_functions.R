@@ -1,11 +1,22 @@
-# Assume data_df$date is in UTC posix
+#' Calculates the proportion of time a sensor is operational. Assumes
+#'  sensor data is sampled every 15 minutes and neglects file timing
+#'  inconsistencies at the end/start of daily git files.
+#'
+#' @param data_df Dataframe of processed sensor data. Dates are in POSIX format.
+#' @param target_start_date_char Char representing target start date in
+#'  sensor dataset, in YYYY-MM-DD HH:MM:SS format.
+#' @param target_end_date_char Char representing target end date in
+#'  sensor dataset, in YYYY-MM-DD HH:MM:SS format.
+#' @return Double value between 0 (0% uptime) and 1 (100% uptime).
 get_sensor_uptime <- function(
   data_df, target_start_date_char, target_end_date_char
 ) {
-  first_expected_df_date <- as.POSIXct(target_start_date_char, tz = "UTC")
-  last_expected_df_date <- as.POSIXct(
-    target_end_date_char, tz = "UTC"
-  ) + lubridate::days(1) - lubridate::minutes(15)
+  if (nrow(data_df) == 0) { # Check for empty data
+    return(0)
+  }
+  timezone <- lubridate::tz(data_df$date)
+  first_expected_df_date <- as.POSIXct(target_start_date_char, tz = timezone)
+  last_expected_df_date <- as.POSIXct(target_end_date_char, tz = timezone)
 
   # indices relative to rows of data_df rows
   post_outage_na_indices <- which(
@@ -52,8 +63,10 @@ get_sensor_uptime <- function(
   times_missed <- round((diff_minutes - 15) / 15)
   num_times_missed <- sum(times_missed)
 
-  # Get total number of expected dates and sensor uptime
+  # Get total number of expected dates and calculate sensor uptime
   total_num_times <- nrow(data_df) + num_times_missed -
     length(post_outage_na_indices)
   (total_num_times - num_times_missed) / total_num_times
 }
+
+export("get_sensor_uptime")
