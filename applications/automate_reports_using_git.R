@@ -64,8 +64,8 @@ get_report_from_git_csvs <- function(
 
   for (i in seq_along(sensor_ids)) {
     raw_urls <- file_processor$get_raw_git_urls(
-      start_date = start_dates[[i]],
-      stop_date = end_dates[[i]],
+      start_date = substring(start_dates[[i]], 1, 10), # Do not include time
+      stop_date = substring(end_dates[[i]], 1, 10), # Do not include time
       sensor_id = sensor_ids[[i]]
     )
     print(sprintf("Getting data files from Git for sensor %s", sensor_ids[[i]]))
