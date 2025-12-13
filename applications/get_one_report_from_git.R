@@ -1,10 +1,7 @@
 # Gets outdoor and indoor data from Git and saves them to csvs.
 # Generates report with this data if available from Github.
 
-git_report_generator <- modules::use(
-  "applications/automate_reports_using_git.R",
-  reload = TRUE
-)
+source("applications/automate_reports_using_git.R")
 
 # Start user adjustable parameters
 month_char <- "October"
@@ -18,7 +15,7 @@ indoor_sensor_id <- 2044
 location <- "Gillies_Bay_Public_Library" # Matches name in sensor json
 # End user adjustable parameters
 
-git_report_generator$get_report_from_git_csvs(
+get_report_from_git_csvs(
   start_date_char_outdoors = start_date_char_outdoors,
   end_date_char_outdoors = end_date_char_outdoors,
   start_date_char_indoors = start_date_char_indoors,
@@ -26,10 +23,12 @@ git_report_generator$get_report_from_git_csvs(
   outdoor_sensor_id = outdoor_sensor_id,
   indoor_sensor_id = indoor_sensor_id,
   location = location,
-  facility_photo_directory = "facility_photos",
+  facility_photo_directory = "facility_photos/GilliesBay_Photo.png",
   month_char = month_char,
   year_int = year_int,
   outdoor_csv_folder = "test_pipeline_outdoor3", # Change
   indoor_csv_folder = "test_pipeline_indoor3", # Change
   report_folder_directory = "test_pipeline_reports3", # Change
 )
+
+

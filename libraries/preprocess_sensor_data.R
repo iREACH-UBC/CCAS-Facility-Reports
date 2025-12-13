@@ -1,5 +1,5 @@
-time_processor <- modules::use("libraries/time_processing_functions.R")
-file_processor <- modules::use("libraries/file_processing_functions.R")
+source("libraries/time_processing_functions.R")
+source("libraries/file_processing_functions.R")
 
 #' Processes calibrated sensor data (from Git) to a form usable by report
 #'  generator. Use this processing function if your dataframe came from git
@@ -30,12 +30,12 @@ process_sensor_data_df <- function(
   names(pollutant_data)[names(pollutant_data) == "PM2.5"] <- "PM2_5"
 
   # Get consistent timezone for all dates
-  pollutant_data$date <- time_processor$set_timezone_from_month(
+  pollutant_data$date <- set_timezone_from_month(
     pollutant_data$date, month_int, year_int,
     FALSE # Git data is in local time
   )
   # Remove dates before start and after end dates
-  pollutant_data <- time_processor$remove_out_of_range_data(
+  pollutant_data <- remove_out_of_range_data(
     pollutant_data, start_date_char, end_date_char
   )
   pollutant_data #Implicit return
@@ -77,14 +77,14 @@ process_pollutant_data_df <- function(
     pollutant_df$date <- as.POSIXct(pollutant_df$date, tz = "UTC")
   }
   # Add AQHI column
-  pollutant_df$AQHI <- file_processor$get_aqhi_column(pollutant_df)
+  pollutant_df$AQHI <- get_aqhi_column(pollutant_df)
 
   # Set dates to consistent timezone
-  pollutant_df$date <- time_processor$set_timezone_from_month(
+  pollutant_df$date <- set_timezone_from_month(
     pollutant_df$date, month_int, year_int, df_dates_in_utc
   )
   # Remove data before start and after end dates
-  pollutant_df <- time_processor$remove_out_of_range_data(
+  pollutant_df <- remove_out_of_range_data(
     pollutant_df, start_date_char, end_date_char
   )
   invisible(pollutant_df)
@@ -92,40 +92,38 @@ process_pollutant_data_df <- function(
 
 
 #' Given a csv directory, generates sensor data that is ready to use in
-#'  CCAS report generator.
+#'  CCAS report generator. Assumes that csv has been processed to run
+#'  in CCAS report generator if it is in the standard outdoor or indoor
+#'  processed data folder. Assumes that csv came from Github if it has
+#'  same columns as Github files, or that csv came from manual
+#'  calibrations if it contains same columns as manually calibrated data.
 #'
 #' @param csv_dir Directory (char) of sensor data csv.
-#' @param csv_from_git TRUE if csv came from git data collection pipeline,
-#'  FALSE if csv generated manually.
-#' @param csv_data_is_processed TRUE if csv data has been processed to
-#'  run in CCAS report generator, FALSE otherwise. Csv is processed if it
-#'  has date, pollutant data, and AQHI columns only.
 #' @param start_date_char Char representing target start date in
 #'  sensor datasets, in YYYY-MM-DD HH:MM:SS format.
 #' @param end_date_char Char representing target end date in
 #'  sensor datasets, in YYYY-MM-DD HH:MM:SS format.
+#' @param outdoor_processed_data_folder Char for name of outdoor folder.
+#' @param indoor_processed_data_folder Char for name of indoor folder.
 #' @param dates_in_utc TRUE if csv dates are in UTC timezone,
-#'  FALSE if in local time. Always FALSE if data came from Git.
+#'  FALSE if in local time. Always FALSE if data is processed
+#'  (in a processed data folder). Manual data from RAMPs are
+#'  often in local time, and manual data from QAQs are often in UTC.
 #' @param month_int Integer representing month.
 #' @param year_int Integer representing year.
 get_processed_df_from_csv <- function(
-  csv_dir, csv_from_git, csv_data_is_processed,
-  start_date_char, end_date_char, dates_in_utc,
-  month_int, year_int
+  csv_dir, start_date_char, end_date_char,
+  outdoor_processed_data_folder, indoor_processed_data_folder,
+  dates_in_utc, month_int, year_int
 ) {
   df <- readr::read_csv(csv_dir)
-  if (!(csv_data_is_processed)) {
-    if (csv_from_git) {
-      df <- process_sensor_data_df(
-        df, month_int, year_int, start_date_char, end_date_char
-      )
-    } else {
-      df <- process_pollutant_data_df(
-        df, start_date_char, end_date_char,
-        dates_in_utc, month_int, year_int
-      )
-    }
-  } else {
+
+  if ( # Check if csv data is processed
+    (length(grep(indoor_processed_data_folder, csv_dir)) != 0) || (
+      length(grep(outdoor_processed_data_folder, csv_dir)) != 0
+    )
+  ) {
+    # Set timezone manually and return already processed df
     if (month_int == 3 || month_int == 11) {
       df$date <- lubridate::force_tz(
         df$date, tzone = "Etc/GMT+8"
@@ -135,10 +133,20 @@ get_processed_df_from_csv <- function(
         df$date, tzone = "US/Pacific"
       )
     }
+  } else {
+    if (sensor_data_is_from_git(names(df))) {
+      # Process data from Github
+      df <- process_sensor_data_df(
+        df, month_int, year_int, start_date_char, end_date_char
+      )
+    } else if (sensor_data_manually_generated(names(df))) {
+      # Process manually calibrated data
+      df <- process_pollutant_data_df(
+        df, start_date_char, end_date_char,
+        dates_in_utc, month_int, year_int
+      )
+    } else {
+      stop("File format is not recognized or file is misplaced")
+    }
   }
 }
-
-export(
-  "process_sensor_data_df", "process_pollutant_data_df",
-  "get_processed_df_from_csv"
-)

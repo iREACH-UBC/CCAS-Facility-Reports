@@ -1,10 +1,6 @@
-sensor_data_processor <- modules::use(
-  "libraries/preprocess_sensor_data.R"
-)
-file_processor <- modules::use(
-  "libraries/file_processing_functions.R"
-)
-report_generator <- modules::use("libraries/generate_report.R")
+source("libraries/preprocess_sensor_data.R")
+source("libraries/file_processing_functions.R")
+source("libraries/generate_report.R")
 
 #' Generates indoor and outdoor datasets from Git, saves them to csvs,
 #' and uses them to produce a CCAS facility report.
@@ -63,16 +59,16 @@ get_report_from_git_csvs <- function(
   )
 
   for (i in seq_along(sensor_ids)) {
-    raw_urls <- file_processor$get_raw_git_urls(
+    raw_urls <- get_raw_git_urls(
       start_date = substring(start_dates[[i]], 1, 10), # Do not include time
       stop_date = substring(end_dates[[i]], 1, 10), # Do not include time
       sensor_id = sensor_ids[[i]]
     )
     print(sprintf("Getting data files from Git for sensor %s", sensor_ids[[i]]))
-    sensor_data_df <- file_processor$get_df_from_raw_git_urls(raw_urls)
+    sensor_data_df <- get_df_from_raw_git_urls(raw_urls)
 
     if (!(is.null(sensor_data_df))) {
-      processed_sensor_data_df <- sensor_data_processor$process_sensor_data_df(
+      processed_sensor_data_df <- process_sensor_data_df(
         sensor_data_df, month_int, year_int,
         start_dates[[i]], end_dates[[i]]
       )
@@ -84,7 +80,7 @@ get_report_from_git_csvs <- function(
         indoor_data_df <- processed_sensor_data_df
       }
       print(sprintf("Saving data to csv for sensor %s", sensor_ids[[i]]))
-      file_processor$save_sensor_data_csv(
+      save_sensor_data_csv(
         month_char, year_int, location_folder,
         processed_sensor_data_df, timezone,
         sensor_ids[[i]]
@@ -101,7 +97,7 @@ get_report_from_git_csvs <- function(
     print(sprintf(
       "Generating facility report for %s", chartr("_", " ", location)
     ))
-    report_generator$generate_one_report(
+    generate_one_report(
       year_int = year_int,
       month_char = month_char,
       start_date_char_outdoors = start_date_char_outdoors,
@@ -184,7 +180,85 @@ get_all_reports_from_git_csvs <- function(
   }
 }
 
-export(
-  "get_report_from_git_csvs",
-  "get_all_reports_from_git_csvs"
-)
+# TODO- Finish writing this function and defining parameters
+get_report_from_csvs <- function(
+  outdoor_csv_dir,
+  indoor_csv_dir,
+  outdoor_processed_data_folder,
+  indoor_processed_data_folder,
+  start_date_char_outdoors,
+  end_date_char_outdoors,
+  start_date_char_indoors,
+  end_date_char_indoors,
+  outdoor_dates_in_utc,
+  indoor_dates_in_utc,
+  month_char,
+  year_int,
+  outdoor_sensor_id,
+  indoor_sensor_id,
+  location,
+  facility_photo_dir
+) {
+  month_int <- match(month_char, month.name)
+  month_abbrev <- month.abb[month_int]
+
+  # Read data from csvs, process data if needed
+  processed_outdoor_df <- get_processed_df_from_csv(
+    csv_dir = outdoor_csv_dir,
+    start_date_char = start_date_char_outdoors,
+    end_date_char = end_date_char_outdoors,
+    outdoor_processed_data_folder = outdoor_processed_data_folder,
+    indoor_processed_data_folder = indoor_processed_data_folder,
+    dates_in_utc = outdoor_dates_in_utc,
+    month_int = month_int,
+    year_int = year_int
+  )
+  processed_indoor_df <- get_processed_df_from_csv(
+    csv_dir = indoor_csv_dir,
+    start_date_char = start_date_char_indoors,
+    end_date_char = end_date_char_indoors,
+    outdoor_processed_data_folder = outdoor_processed_data_folder,
+    indoor_processed_data_folder = indoor_processed_data_folder,
+    dates_in_utc = indoor_dates_in_utc,
+    month_int = month_int,
+    year_int = year_int
+  )
+
+  # Save outdoor and indoor data to csvs with standardized name conventions
+  save_sensor_data_csv(
+    month_char = month_char,
+    year_int = year_int,
+    location_folder = "test_pipeline_outdoor3",
+    processed_sensor_data_df = processed_outdoor_df,
+    timezone = lubridate::tz(processed_outdoor_df$date),
+    sensor_id = outdoor_sensor_id
+  )
+  save_sensor_data_csv(
+    month_char = month_char,
+    year_int = year_int,
+    location_folder = "test_pipeline_indoor3",
+    processed_sensor_data_df = processed_indoor_df,
+    timezone = lubridate::tz(processed_indoor_df$date),
+    sensor_id = indoor_sensor_id
+  )
+
+  # Generate report
+  generate_one_report(
+    year_int = year_int,
+    month_char = month_char,
+    start_date_char_outdoors = start_date_char_outdoors,
+    start_date_char_indoors = start_date_char_indoors,
+    end_date_char_outdoors = end_date_char_outdoors,
+    end_date_char_indoors = end_date_char_indoors,
+    facility_location_char = chartr("_", " ", location),
+    facility_photo_directory = facility_photo_dir, # File inclusive
+    outdoor_file_df = processed_outdoor_df,
+    indoor_file_df = processed_indoor_df,
+    output_file_name = sprintf(
+      "Report_%s_%s%s.pdf", gsub("_", "", location), month_abbrev, year_int
+    ),
+    output_file_directory = file.path(
+      "test_pipeline_reports3", sprintf("%s%s_reports", month_abbrev, year_int)
+    ) # TODO: CHANGE
+  )
+}

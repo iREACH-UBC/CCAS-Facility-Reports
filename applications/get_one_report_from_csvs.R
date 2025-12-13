@@ -1,19 +1,12 @@
-sensor_data_processor <- modules::use(
-  "libraries/preprocess_sensor_data.R", reload = TRUE
-)
-file_processor <- modules::use(
-  "libraries/file_processing_functions.R", reload = TRUE
-)
-report_generator <- modules::use("libraries/generate_report.R", reload = TRUE)
+# TODO: Redo this script to run the get_report_from_csvs function
+
+source("libraries/preprocess_sensor_data.R")
+source("libraries/file_processing_functions.R")
+source("libraries/generate_report.R")
 
 # Start user adjustable parameters
-outdoor_csv_dir <- "CHANGETHIS" # TODO- get a sample csv
-indoor_csv_dir <- "CHANGETHIS" # TODO- get a sample csv
-outdoor_csv_from_git <- TRUE
-indoor_csv_from_git <- TRUE
-outdoor_csv_data_is_processed <- TRUE
-indoor_csv_data_is_processed <- TRUE
-
+outdoor_csv_dir <- "example_folder/2040.csv" # File inclusive
+indoor_csv_dir <- "example_folder/2044.csv" # File inclusive
 
 start_date_char_outdoors <- "2025-10-01 00:00:00" # YYYY-MM-DD HH:MM:SS
 end_date_char_outdoors <- "2025-10-31 23:45:00" # YYYY-MM-DD HH:MM:SS
@@ -23,7 +16,6 @@ outdoor_dates_in_utc <- TRUE
 indoor_dates_in_utc <- TRUE
 
 month_char <- "October"
-month_int <- match(month_char, month.name) # Do not change
 year_int <- 2025
 outdoor_sensor_id <- 2040
 indoor_sensor_id <- 2044
@@ -31,32 +23,33 @@ location <- "Gillies_Bay_Public_Library" # Matches name in sensor json
 facility_photo_dir <- "facility_photos/GilliesBay_Photo.png"
 # End user adjustable parameters
 
+month_int <- match(month_char, month.name)
 month_abbrev <- month.abb[month_int]
 
 # Read data from csvs, process data if needed
-processed_outdoor_df <- sensor_data_processor$get_processed_df_from_csv(
+processed_outdoor_df <- get_processed_df_from_csv(
   csv_dir = outdoor_csv_dir,
-  csv_from_git = outdoor_csv_from_git,
-  csv_data_is_processed = outdoor_csv_data_is_processed,
   start_date_char = start_date_char_outdoors,
   end_date_char = end_date_char_outdoors,
+  outdoor_processed_data_folder = "outdoor_data_processed",
+  indoor_processed_data_folder = "indoor_data_processed",
   dates_in_utc = outdoor_dates_in_utc,
   month_int = month_int,
   year_int = year_int
 )
-processed_indoor_df <- sensor_data_processor$get_processed_df_from_csv(
+processed_indoor_df <- get_processed_df_from_csv(
   csv_dir = indoor_csv_dir,
-  csv_from_git = indoor_csv_from_git,
-  csv_data_is_processed = indoor_csv_data_is_processed,
   start_date_char = start_date_char_indoors,
   end_date_char = end_date_char_indoors,
+  outdoor_processed_data_folder = "outdoor_data_processed",
+  indoor_processed_data_folder = "indoor_data_processed",
   dates_in_utc = indoor_dates_in_utc,
   month_int = month_int,
   year_int = year_int
 )
 
 # Save outdoor and indoor data to csvs with standardized name conventions
-file_processor$save_sensor_data_csv(
+save_sensor_data_csv(
   month_char = month_char,
   year_int = year_int,
   location_folder = "test_pipeline_outdoor3",
@@ -64,7 +57,7 @@ file_processor$save_sensor_data_csv(
   timezone = lubridate::tz(processed_outdoor_df$date),
   sensor_id = outdoor_sensor_id
 )
-file_processor$save_sensor_data_csv(
+save_sensor_data_csv(
   month_char = month_char,
   year_int = year_int,
   location_folder = "test_pipeline_indoor3",
@@ -74,7 +67,7 @@ file_processor$save_sensor_data_csv(
 )
 
 # Generate report
-report_generator$generate_one_report(
+generate_one_report(
   year_int = year_int,
   month_char = month_char,
   start_date_char_outdoors = start_date_char_outdoors,
