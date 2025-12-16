@@ -151,6 +151,18 @@ get_sensor_uptime <- function(
 outdoor_data <- params$outdoor_dataset
 indoor_data <- params$indoor_dataset
 
+# Replace negative values with NAs
+outdoor_data <- outdoor_data %>%    
+  mutate(across(
+    where(is.numeric),
+    ~ ifelse(.x < 0, NA, .x)
+))
+indoor_data <- indoor_data %>%    
+  mutate(across(
+    where(is.numeric),
+    ~ ifelse(.x < 0, NA, .x)
+))
+
 # Define pollutants and their units
 pollutants <- c("NO2", "NO", "CO2", "O3", "CO", "PM2_5")
 

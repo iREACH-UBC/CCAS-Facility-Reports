@@ -1,7 +1,7 @@
 # Gets outdoor and indoor data from Git and saves them to csvs.
 # Generates report with this data if available from Github.
 
-source("applications/automate_reports_using_git.R")
+source("applications/report_automation.R")
 
 # Start user adjustable parameters
 month_char <- "October"
@@ -14,6 +14,9 @@ outdoor_sensor_id <- 2040
 indoor_sensor_id <- 2044
 location <- "Gillies_Bay_Public_Library" # Matches name in sensor json
 # End user adjustable parameters
+
+month_int <- match(month_char, month.name)
+month_abbrev <- month.abb[month_int]
 
 get_report_from_git_csvs(
   start_date_char_outdoors = start_date_char_outdoors,
@@ -28,7 +31,6 @@ get_report_from_git_csvs(
   year_int = year_int,
   outdoor_csv_folder = "test_pipeline_outdoor3", # Change
   indoor_csv_folder = "test_pipeline_indoor3", # Change
-  report_folder_directory = "test_pipeline_reports3", # Change
+  report_folder_directory = file.path("test_pipeline_reports3",
+    sprintf("%s%s_reports", month_abbrev, year_int)) # Change
 )
-
-

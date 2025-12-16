@@ -4,7 +4,7 @@
 # some sensors, those reports are not generated. All reports
 # are saved to facility_reports folder under corresponding month.
 
-source("applications/automate_reports_using_git.R")
+source("applications/report_automation.R")
 
 # Start user adjustable parameters part 1
 month_char <- "October"

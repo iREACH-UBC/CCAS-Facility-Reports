@@ -1,5 +1,6 @@
 source("libraries/time_processing_functions.R")
 source("libraries/file_processing_functions.R")
+source("applications/data_io.R")
 
 #' Processes calibrated sensor data (from Git) to a form usable by report
 #'  generator. Use this processing function if your dataframe came from git
@@ -8,13 +9,16 @@ source("libraries/file_processing_functions.R")
 #' @param calibrated_dataset_df A dataframe of calibrated sensor data
 #'  from git. Dataframe should have no date overlaps aside from
 #'  time change. Assumes all pollutant column types are present, including AQHI,
-#'  and that all dates are in local Vancouver time but with UTC timestamp.
+#'  and that all dates are in local Vancouver time. If dates are in POSIX,
+#'  assume they have UTC timestamps even though dates represent Vancouver time.
 #' @param month_int Integer representing month of year.
 #' @param year_int Integer representing year.
 #' @param start_date_char Char representing target start date in dataset,
-#'  in YYYY-MM-DD HH:MM:SS format.
+#'  in YYYY-MM-DD HH:MM:SS format. Represents PST time if dates in 
+#'  Nov-Mar, and PDT if dates in Apr-Oct.
 #' @param end_date_char Char representing target end date in dataset,
-#'  in YYYY-MM-DD HH:MM:SS format.
+#'  in YYYY-MM-DD HH:MM:SS format. Represents PST time if dates in 
+#'  Nov-Mar, and PDT if dates in Apr-Oct.
 #' @return Dataframe of processed sensor data.
 process_sensor_data_df <- function(
   calibrated_dataset_df, month_int, year_int,
@@ -29,6 +33,18 @@ process_sensor_data_df <- function(
   # Reformat PM2.5
   names(pollutant_data)[names(pollutant_data) == "PM2.5"] <- "PM2_5"
 
+  # Extra processing if date is read as a character
+  if (typeof(pollutant_data$date) != "double") {
+    # Add time to date if missing
+    pollutant_data$date <- ifelse(
+      grepl(":", pollutant_data$date),
+      pollutant_data$date,
+      paste0(pollutant_data$date, " 00:00:00")
+    )
+    # Convert time to POSIX w/ UTC timestamp
+    # Done to be consistent with typical read_csv output in case read.csv used
+    pollutant_data$date <- as.POSIXct(pollutant_df$date, tz = "UTC")
+  }
   # Get consistent timezone for all dates
   pollutant_data$date <- set_timezone_from_month(
     pollutant_data$date, month_int, year_int,
@@ -46,14 +62,16 @@ process_sensor_data_df <- function(
 #'  report generator. Use this processing function if your dataframe
 #'  did not come from git data collection pipeline.
 #'
-#' @param calibrated_dataset_df A dataframe of manually calibrated sensor data.
+#' @param pollutant_df A dataframe of manually calibrated sensor data.
 #'  Dataframe should have no date overlaps aside from time change. Assumes AQHI
-#'  column is missing from dataset. Dates must be in UTC or local time, and
-#'  must have a UTC timestamp (even if in local time).
+#'  column is missing from dataset. Dates must represent UTC or local time, and
+#'  must have a UTC timestamp (even if in local time) if in POSIX format.
 #' @param start_date_char Char representing target start date in dataset,
-#'  in YYYY-MM-DD HH:MM:SS format.
+#'  in YYYY-MM-DD HH:MM:SS format. Represents PST time if dates in 
+#'  Nov-Mar, and PDT if dates in Apr-Oct.
 #' @param end_date_char Char representing target end date in dataset,
-#'  in YYYY-MM-DD HH:MM:SS format.
+#'  in YYYY-MM-DD HH:MM:SS format. Represents PST time if dates in 
+#'  Nov-Mar, and PDT if dates in Apr-Oct.
 #' @param df_dates_in_utc TRUE if dataset dates are in UTC, FALSE if dates
 #'  are in local time. Note that timezone stamp may read UTC even if dates
 #'  are in local time (ex. if readr::read_csv is used).
@@ -100,11 +118,13 @@ process_pollutant_data_df <- function(
 #'
 #' @param csv_dir Directory (char) of sensor data csv.
 #' @param start_date_char Char representing target start date in
-#'  sensor datasets, in YYYY-MM-DD HH:MM:SS format.
+#'  sensor datasets, in YYYY-MM-DD HH:MM:SS format. Represents PST time if dates in 
+#'  Nov-Mar, and PDT if dates in Apr-Oct.
 #' @param end_date_char Char representing target end date in
-#'  sensor datasets, in YYYY-MM-DD HH:MM:SS format.
-#' @param outdoor_processed_data_folder Char for name of outdoor folder.
-#' @param indoor_processed_data_folder Char for name of indoor folder.
+#'  sensor datasets, in YYYY-MM-DD HH:MM:SS format. Represents PST time if dates in 
+#'  Nov-Mar, and PDT if dates in Apr-Oct.
+#' @param outdoor_processed_data_folder Name (char) of outdoor processed data folder.
+#' @param indoor_processed_data_folder Name (char) of indoor processed data folder.
 #' @param dates_in_utc TRUE if csv dates are in UTC timezone,
 #'  FALSE if in local time. Always FALSE if data is processed
 #'  (in a processed data folder). Manual data from RAMPs are
@@ -116,30 +136,48 @@ get_processed_df_from_csv <- function(
   outdoor_processed_data_folder, indoor_processed_data_folder,
   dates_in_utc, month_int, year_int
 ) {
-  df <- readr::read_csv(csv_dir)
+  print(csv_dir)
+  print(start_date_char)
+  print(end_date_char)
+  print(outdoor_processed_data_folder)
+  print(indoor_processed_data_folder)
+  print(dates_in_utc)
+  print(month_int)
+  print(year_int)
+
+  df <- readr::read_csv(csv_dir, show_col_types = FALSE)
+  print("Read csv")
+  print(nrow(df))
+  print(ncol(df))
 
   if ( # Check if csv data is processed
     (length(grep(indoor_processed_data_folder, csv_dir)) != 0) || (
       length(grep(outdoor_processed_data_folder, csv_dir)) != 0
     )
   ) {
-    # Set timezone manually and return already processed df
+    print("Found that dataset is already processed")
+    # Set timezone manually
     if (month_int == 3 || month_int == 11) {
       df$date <- lubridate::force_tz(
         df$date, tzone = "Etc/GMT+8"
       )
     } else {
+      print(length(df$date))
       df$date <- lubridate::force_tz(
         df$date, tzone = "US/Pacific"
       )
     }
+    df # Return already processed df
   } else {
+    print("Found that dataset is unprocessed")
     if (sensor_data_is_from_git(names(df))) {
+      print("Found that sensor data is from Git")
       # Process data from Github
       df <- process_sensor_data_df(
         df, month_int, year_int, start_date_char, end_date_char
       )
     } else if (sensor_data_manually_generated(names(df))) {
+      print("Found that sensor data is generated manually")
       # Process manually calibrated data
       df <- process_pollutant_data_df(
         df, start_date_char, end_date_char,
