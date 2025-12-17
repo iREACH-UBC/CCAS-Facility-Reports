@@ -1,7 +1,7 @@
 source("applications/report_automation.R")
 
 # Start user adjustable parameters
-outdoor_csv_dir <- "test_pipeline_outdoor3/October2025/2032.csv" # File inclusive
+outdoor_csv_dir <- "test_pipeline_outdoor3/October2025/MOD-00632.csv" # File inclusive
 indoor_csv_dir <- "MOD-00629_pred_2025_10_01.csv" # File inclusive
 
 start_date_char_outdoors <- "2025-10-01 00:00:00" # YYYY-MM-DD HH:MM:SS

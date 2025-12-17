@@ -69,4 +69,82 @@ get_sensor_uptime <- function(
   (total_num_times - num_times_missed) / total_num_times
 }
 
-export("get_sensor_uptime")
+
+#' Counts the number of different times for each day in a dataset.
+#'  Assumes no duplicate date entries.
+#'
+#' @param dataset Dataframe of processed sensor data. Dates are in POSIX format.
+#' @param start_date_char Char representing target start date in dataset.
+#'  Represents date in YYYY-MM-DD HH:MM:SS format, and in same timezone as 
+#'  sensor dataset.
+#' @param end_date_char Char representing target end date in dataset.
+#'  Represents date in YYYY-MM-DD HH:MM:SS format, and in same timezone as 
+#'  sensor dataset.
+#' @return Dataframe of dates and number of different times per date.
+get_actual_num_times_per_date <- function(dataset, start_date_char, end_date_char) {
+  timezone <- lubridate::tz(dataset$date)
+
+  # Remove dataset rows with sensor outages
+  outage_indices <- which(
+    is.na(dataset$NO) & is.na(dataset$NO2) &
+      is.na(dataset$CO) & is.na(dataset$O3)
+  )
+  df_without_outage_data <- dataset[-outage_indices, ]
+
+  # Get dataset dates w/ outages omitted
+  dates_without_outages <- substr(
+    as.character(dataset[-outage_indices, ]$date), 1, 10
+  )
+  # Get all dates within the start and end date, inclusive
+  all_dates <- as.character(seq(
+    from = as.Date(start_date_char), to = as.Date(end_date_char), by = "day"
+  ))
+
+  date_match_indices <- match(dates_without_outages, all_dates)
+  num_times_per_date <- tabulate(date_match_indices, nbins = length(all_dates))
+  num_times_per_date_df <- data.frame(date = all_dates, count = num_times_per_date)
+}
+
+
+#' Gets the expected number of different times for each day in a dataset.
+#'  Assumes no duplicate date entries and assumes 15 minute data intervals.
+#'
+#' @param dataset Dataframe of processed sensor data. Dates are in POSIX format.
+#' @param start_date_char Char representing target start date in dataset.
+#'  Represents date in YYYY-MM-DD HH:MM:SS format, and in same timezone as 
+#'  sensor dataset.
+#' @param end_date_char Char representing target end date in dataset.
+#'  Represents date in YYYY-MM-DD HH:MM:SS format, and in same timezone as 
+#'  sensor dataset.
+#' @return Dataframe of dates and expected number of different times per date.
+get_expected_num_times_per_date <- function(
+  dataset, start_date_char, end_date_char
+) {
+  expected_times_per_hr <- 4 # 15 min intervals
+  expected_times_per_day <- expected_times_per_hour * 24
+  timezone <- lubridate::tz(dataset$date)
+
+  dates <- seq(
+    from = substr(start_date_char, 1, 10),
+    to = substr(end_date_char, 1, 10),
+    by = "day"
+  )
+  count <- rep(expected_times_per_day, times = length(dates))
+  last_time_first_day <- sprintf("%s 23:45:00", as.Date(start_date_char))
+  first_time_last_day <- sprintf("%s 00:00:00", as.Date(end_date_char))
+
+  diff_minutes_first_day <- as.double(difftime(
+    as.POSIXct(last_time_first_day, tz = timezone),
+    as.POSIXct(start_date_char, tz = timezone),
+    units = "mins"
+  ))
+  diff_minutes_last_day <- as.double(difftime(
+    as.POSIXct(end_date_char, tz = timezone),
+    as.POSIXct(first_time_last_day, tz = timezone),
+    units = "mins"
+  ))
+
+  count[[1]] <- as.integer((diff_minutes_first_day - 15) / 15)
+  count[length(count)] <- as.integer((diff_minutes_last_day - 15) / 15)
+  times_per_date <- data.frame(date = dates, count = count)
+}
