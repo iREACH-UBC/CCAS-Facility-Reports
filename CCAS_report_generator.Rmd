@@ -133,26 +133,43 @@ outdoor_uptime <- get_sensor_uptime(
 indoor_uptime <- get_sensor_uptime(
   indoor_data, params$start_date_char_indoors, params$end_date_char_indoors
 )
+
+# Get calendar plot datasets
+outdoor_daily_df_list <- separate_df_by_day(
+  outdoor_data,
+  substr(params$start_date_char_outdoors, 1, 10),
+  substr(params$end_date_char_outdoors, 1, 10)
+)
+all_dates_outdoors <- as.character(seq(
+  from = as.Date(params$start_date_char_outdoors),
+  to = as.Date(params$end_date_char_outdoors),
+  by = "day"
+))
+all_start_dates_outdoors <- sprintf("%s 00:00:00", all_dates_outdoors)
+all_start_dates_outdoors[[1]] <- params$start_date_char_outdoors
+all_end_dates_outdoors <- sprintf("%s 23:45:00", all_dates_outdoors)
+all_end_dates_outdoors[length(all_end_dates_outdoors)] <- params$end_date_char_outdoors
+
+outdoor_daily_uptimes <- Map(
+  get_sensor_uptime,
+  outdoor_daily_df_list,
+  all_start_dates_outdoors,
+  all_end_dates_outdoors
+)
+
+target_start = replicate(6, "2025-10-01 00:00:00"),
+target_end = replicate(6, "2025-10-31 23:45:00"),
+
+outdoor_daily_uptimes <- lapply(outdoor_daily_df_list, get_sensor_uptime)
+
+indoor_daily_df_list <- separate_df_by_day(
+  indoor_data,
+  substr(params$start_date_char_indoors, 1, 10),
+  substr(params$end_date_char_indoors, 1, 10)
+)
 ```
 
 ```{r Load plotting functions, include = FALSE, message = FALSE, warning = FALSE}
-# TODO- make into a get_daily_uptime function or similar
-# Isolate this somehow so it can be tested and imported
-# Divide into expected times per date and actual times per date functions
-remove_calendar_plot_data <- function(
-  dataset, start_date_char, end_date_char
-) {
-  outage_indices <- which(
-    is.na(dataset$NO) & is.na(dataset$NO2) &
-      is.na(dataset$CO) & is.na(dataset$O3)
-  )
-  df_without_outage_data <- dataset[-outage_indices, ]
-  actual_times_per_date <- as.data.frame(
-    table(as.Date(df_without_outage_data$date))
-  )
-}
-
-
 make_pollutant_calendar_plot <- function(
     dataset, dataset_col_name, year_int, month_int,
     title_expression, threshold_value, colours) {

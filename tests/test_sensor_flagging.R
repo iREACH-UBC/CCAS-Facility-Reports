@@ -42,33 +42,22 @@ testthat::test_that(desc = "Test get_sensor_uptime w/o data", code = {
 
 
 patrick::with_parameters_test_that(
-  desc_stub = "Test get_actual_num_times_per_date",
-  .cases = tibble::tibble(
-    url = c(
-      "tests/test_files/631_allNA.csv",
-      "tests/test_files/631_endsNA.csv",
-      "tests/test_files/sample_data.csv"
-    ),
-    start_dates = c("2025-10-20 12:33:00", "2025-10-22 23:45:00", "2025-10-01 00:00:00"),
-    end_dates = c("2025-10-28 00:00:00", "2025-10-29 12:01:00", "2025-10-31 23:45:00"),
-    expected_counts = list(
-      c(0, 0, 0, 0, 0, 0, 0, 0, 0),
-      c(0, 0, 0, 0, 0, 49, 96, 25),
-      c(
-        3, 4, 2, 4, 1, 0, 2, 0, 0, 0, 2, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0
-      )
+  desc_stub = "Test get_sensor_uptime over one day", code = {
+    sensor_data_df <- readr::read_csv(csv_dir)
+    sensor_data_df$date <- lubridate::force_tz(
+      sensor_data_df$date, tzone = "Etc/GMT+8"
     )
-  ),
-  code = {
-    expected_dates <- as.character(seq(
-      from = as.Date(start_dates), to = as.Date(end_dates), by = "day"
-    ))
-    expected_df <- data.frame(date = expected_dates, count = expected_counts)
     testthat::expect_equal(
-      get_actual_num_times_per_date(
-        readr::read_csv(url), start_dates, end_dates
-      ), expected_df
+      get_sensor_uptime(sensor_data_df, target_start, target_end),
+      expected_uptime,
+      tolerance = 1e-8
     )
-  }
+  },
+  csv_dir = c(
+    "tests/test_files/one_day_data.csv",
+    "tests/test_files/one_day_with_NAs.csv"
+  ),
+  target_start = c("2025-10-02 00:00:00", "2025-10-09 03:15:00"),
+  target_end = c("2025-10-02 23:45:00", "2025-10-09 23:00:00"),
+  expected_uptime = c(1, 51 / 78)
 )

@@ -207,3 +207,36 @@ save_sensor_data_csv <- function(
     location_folder, month_folder, sprintf("%s.csv", sensor_id)
   )
 }
+
+
+#' Saves processed sensor dataframe to a csv.
+#' Csv is stored by location folder / month and year / sensor name.
+#'
+#' @param dataset A dataframe with a column named date.
+#' @param start_date_char Target start date (char, in YYYY-MM-DD format)
+#'  of data date range.
+#' @param end_date_char Target end date (char, in YYYY-MM-DD format)
+#'  of data date range.
+#' @param location_folder Outdoor or indoor data folder name.
+#' @param processed_sensor_data_df Processed dataframe of sensor data.
+#' @param timezone "US/Pacific" if no time change in data,
+#'  "Etc/GMT+8" otherwise.
+#' @param sensor_id Character or int denoting sensor ID.
+#' @return A list where each component contains a dataframe (from the dataset)
+#'  for a different day of the month. Dates without data contain a dataframe
+#'  with no rows.
+#' @export
+separate_df_by_day <- function(
+  dataset, start_date_char, end_date_char
+) {
+  start_date <- as.Date(start_date_char)
+  end_date   <- as.Date(end_date_char)
+  days <- seq(start_date, end_date, by = "day")
+
+  daily_dfs <- lapply(
+    days,
+    function(d) dataset[as.Date(dataset$date) == d, ]
+  )
+  names(daily_dfs) <- as.character(days)
+  daily_dfs
+}

@@ -24,7 +24,7 @@ get_sensor_uptime <- function(
       is.na(data_df$CO) & is.na(data_df$O3)
   )
   if (length(post_outage_na_indices) == 0) {
-    return(1)
+    return(1) # FALSE- change if outage at end
   }
   # indices relative to post_outage_na_indices
   start_post_outage_indices <- c(1, which(
@@ -66,6 +66,9 @@ get_sensor_uptime <- function(
   # Get total number of expected dates and calculate sensor uptime
   total_num_times <- nrow(data_df) + num_times_missed -
     length(post_outage_na_indices)
+  print(total_num_times)
+  print(num_times_missed)
+  print(length(post_outage_na_indices))
   (total_num_times - num_times_missed) / total_num_times
 }
 
