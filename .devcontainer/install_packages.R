@@ -6,7 +6,7 @@ packages <- c(
   "openair", "gtools", "caret", "plyr", "kableExtra",
   "writexl", "grid", "gridExtra", "lattice", "png",
   "styler", "jsonlite", "zoo", "roxygen2", "testthat",
-  "patrick", "slider"
+  "patrick", "slider", "readr"
 )
 
 # Check which packages are missing

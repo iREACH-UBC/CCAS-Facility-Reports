@@ -1,153 +1,131 @@
-#' Calculates the proportion of time a sensor is operational. Assumes
-#'  sensor data is sampled every 15 minutes and neglects file timing
-#'  inconsistencies at the end/start of daily git files.
+source("libraries/file_processing_functions.R")
+
+#' Counts the number of different times where non-NA pollutant
+#'  data (NO2, NO, CO, O3) is reported in a dataset.
 #'
-#' @param data_df Dataframe of processed sensor data. Dates are in POSIX format.
-#' @param target_start_date_char Char representing target start date in
-#'  sensor dataset, in YYYY-MM-DD HH:MM:SS format.
-#' @param target_end_date_char Char representing target end date in
-#'  sensor dataset, in YYYY-MM-DD HH:MM:SS format.
-#' @return Double value between 0 (0% uptime) and 1 (100% uptime).
-get_sensor_uptime <- function(
-  data_df, target_start_date_char, target_end_date_char
-) {
-  if (nrow(data_df) == 0) { # Check for empty data
-    return(0)
-  }
-  timezone <- lubridate::tz(data_df$date)
-  first_expected_df_date <- as.POSIXct(target_start_date_char, tz = timezone)
-  last_expected_df_date <- as.POSIXct(target_end_date_char, tz = timezone)
-
-  # indices relative to rows of data_df rows
-  post_outage_na_indices <- which(
-    is.na(data_df$NO) & is.na(data_df$NO2) &
-      is.na(data_df$CO) & is.na(data_df$O3)
-  )
-  if (length(post_outage_na_indices) == 0) {
-    return(1) # FALSE- change if outage at end
-  }
-  # indices relative to post_outage_na_indices
-  start_post_outage_indices <- c(1, which(
-    (post_outage_na_indices[1:(length(post_outage_na_indices) - 1)] + 1) !=
-      post_outage_na_indices[2:length(post_outage_na_indices)]
-  ) + 1)
-  # indices relative to post_outage_na_indices
-  if (length(start_post_outage_indices) == 1) {
-    end_post_outage_indices <- length(post_outage_na_indices)
-  } else {
-    end_post_outage_indices <- c(
-      (start_post_outage_indices[2:length(start_post_outage_indices)] - 1),
-      length(post_outage_na_indices)
-    )
-  }
-  # Get indices of dataframe rows before/after sensor outage
-  before_outage_indices <- post_outage_na_indices[start_post_outage_indices] - 1
-  after_outage_indices <- post_outage_na_indices[end_post_outage_indices] + 1
-
-  # Get dates before/after sensor outage
-  dates_before_outage <- as.POSIXct(data_df$date[before_outage_indices])
-  dates_after_outage <- as.POSIXct(data_df$date[after_outage_indices])
-  if (before_outage_indices[[1]] == 0) {
-    dates_before_outage <- c(first_expected_df_date, dates_before_outage)
-  }
-  if (after_outage_indices[[
-    length(after_outage_indices)
-  ]] == (nrow(data_df) + 1)) {
-    dates_after_outage[[length(dates_after_outage)]] <- last_expected_df_date
-  }
-
-  # Calculate number of dates missed due to outages
-  diff_minutes <- as.double(difftime(
-    dates_after_outage, dates_before_outage, units = "mins"
-  ))
-  times_missed <- round((diff_minutes - 15) / 15)
-  num_times_missed <- sum(times_missed)
-
-  # Get total number of expected dates and calculate sensor uptime
-  total_num_times <- nrow(data_df) + num_times_missed -
-    length(post_outage_na_indices)
-  print(total_num_times)
-  print(num_times_missed)
-  print(length(post_outage_na_indices))
-  (total_num_times - num_times_missed) / total_num_times
-}
-
-
-#' Counts the number of different times for each day in a dataset.
-#'  Assumes no duplicate date entries.
-#'
-#' @param dataset Dataframe of processed sensor data. Dates are in POSIX format.
-#' @param start_date_char Char representing target start date in dataset.
-#'  Represents date in YYYY-MM-DD HH:MM:SS format, and in same timezone as 
-#'  sensor dataset.
-#' @param end_date_char Char representing target end date in dataset.
-#'  Represents date in YYYY-MM-DD HH:MM:SS format, and in same timezone as 
-#'  sensor dataset.
-#' @return Dataframe of dates and number of different times per date.
-get_actual_num_times_per_date <- function(dataset, start_date_char, end_date_char) {
-  timezone <- lubridate::tz(dataset$date)
-
+#' @param dataset Dataframe of processed sensor data. Assumes no duplicate
+#'  date entries in dataset.
+#' @return Number (int) of different times in the dataset.
+get_actual_num_times_per_dataset <- function(dataset) {
   # Remove dataset rows with sensor outages
   outage_indices <- which(
     is.na(dataset$NO) & is.na(dataset$NO2) &
       is.na(dataset$CO) & is.na(dataset$O3)
   )
-  df_without_outage_data <- dataset[-outage_indices, ]
-
-  # Get dataset dates w/ outages omitted
-  dates_without_outages <- substr(
-    as.character(dataset[-outage_indices, ]$date), 1, 10
-  )
-  # Get all dates within the start and end date, inclusive
-  all_dates <- as.character(seq(
-    from = as.Date(start_date_char), to = as.Date(end_date_char), by = "day"
-  ))
-
-  date_match_indices <- match(dates_without_outages, all_dates)
-  num_times_per_date <- tabulate(date_match_indices, nbins = length(all_dates))
-  num_times_per_date_df <- data.frame(date = all_dates, count = num_times_per_date)
+  if (length(outage_indices) != 0) {
+    df_without_outage_data <- dataset[-outage_indices, ]
+    nrow(df_without_outage_data)
+  } else {
+    nrow(dataset)
+  }
 }
 
 
-#' Gets the expected number of different times for each day in a dataset.
-#'  Assumes no duplicate date entries and assumes 15 minute data intervals.
+#' Gets the expected number of different times where non-NA pollutant data
+#'  (NO2, NO, CO, O3) is reported in a dataset. Assumes data is measured in
+#'  15 minute time intervals.
 #'
-#' @param dataset Dataframe of processed sensor data. Dates are in POSIX format.
 #' @param start_date_char Char representing target start date in dataset.
-#'  Represents date in YYYY-MM-DD HH:MM:SS format, and in same timezone as 
-#'  sensor dataset.
+#'  Represents date in YYYY-MM-DD HH:MM:SS format. Dates represent PST
+#'  time if the dataset is for a month in Nov-Mar, and PDT if the
+#'  dataset is for a month in Apr-Oct.
 #' @param end_date_char Char representing target end date in dataset.
-#'  Represents date in YYYY-MM-DD HH:MM:SS format, and in same timezone as 
-#'  sensor dataset.
-#' @return Dataframe of dates and expected number of different times per date.
-get_expected_num_times_per_date <- function(
+#'  Represents date in YYYY-MM-DD HH:MM:SS format. Dates represent PST
+#'  time if the dataset is for a month in Nov-Mar, and PDT if the
+#'  dataset is for a month in Apr-Oct.
+#' @return Expected number (int) of different times per date.
+get_expected_num_times_per_dataset <- function(
+  start_date_char, end_date_char
+) {
+  if (start_date_char == end_date_char) {
+    expected_num <- 0
+  } else {
+    start <- as.POSIXct(start_date_char, tz = "UTC")
+    stop <- as.POSIXct(end_date_char, tz = "UTC")
+    expected_num <- as.integer(
+      as.double(difftime(stop, start, units = "mins") / 15)
+    ) + 1
+  }
+}
+
+
+#' Calculates the proportion of time a sensor is operational. Assumes
+#'  sensor data is sampled every 15 minutes.
+#'
+#' @param dataset Dataframe of processed sensor data. Assumes no duplicate
+#'  date entries in dataset. Dataframe must not have date entries before
+#'  start date or after stop date.
+#' @param start_date_char Char representing target start date in dataset.
+#'  Represents date in YYYY-MM-DD HH:MM:SS format. Dates represent PST
+#'  time if the dataset is for a month in Nov-Mar, and PDT if the
+#'  dataset is for a month in Apr-Oct.
+#' @param end_date_char Char representing target end date in dataset.
+#'  Represents date in YYYY-MM-DD HH:MM:SS format. Dates represent PST
+#'  time if the dataset is for a month in Nov-Mar, and PDT if the
+#'  dataset is for a month in Apr-Oct.
+#' @return Expected number (int) of different times per date.
+get_sensor_uptime <- function(
   dataset, start_date_char, end_date_char
 ) {
-  expected_times_per_hr <- 4 # 15 min intervals
-  expected_times_per_day <- expected_times_per_hour * 24
-  timezone <- lubridate::tz(dataset$date)
+  get_actual_num_times_per_dataset(dataset) /
+    get_expected_num_times_per_dataset(start_date_char, end_date_char)
+}
 
-  dates <- seq(
-    from = substr(start_date_char, 1, 10),
-    to = substr(end_date_char, 1, 10),
-    by = "day"
+
+#' Returns the sensor data provided but with certain days' data removed
+#'  if sensor uptime over those days is less than the data proportion.
+#'
+#' @param dataset Dataframe of processed sensor data. Assumes no duplicate
+#'  date entries in dataset. Dataframe must not have date entries before
+#'  start date or after stop date.
+#' @param start_date_char Char representing target start date in dataset.
+#'  Represents date in YYYY-MM-DD HH:MM:SS format. Dates represent PST
+#'  time if the dataset is for a month in Nov-Mar, and PDT if the
+#'  dataset is for a month in Apr-Oct.
+#' @param end_date_char Char representing target end date in dataset.
+#'  Represents date in YYYY-MM-DD HH:MM:SS format. Dates represent PST
+#'  time if the dataset is for a month in Nov-Mar, and PDT if the
+#' @param uptime_threshold Double between 0 and 1 representing sensor
+#'  uptime proportion. This value is a chosen sensor uptime threshold;
+#'  dates with uptimes below this threshold are removed from the dataset.
+#'  dataset is for a month in Apr-Oct.
+#' @return Dataframe of sensor dataset after omitting days with low uptime.
+remove_days_with_low_uptime <- function(
+  dataset, start_date_char, end_date_char, uptime_threshold
+) {
+  # Separate dataframes by day
+  daily_df_list <- separate_df_by_day(
+    dataset,
+    substr(start_date_char, 1, 10),
+    substr(end_date_char, 1, 10)
   )
-  count <- rep(expected_times_per_day, times = length(dates))
-  last_time_first_day <- sprintf("%s 23:45:00", as.Date(start_date_char))
-  first_time_last_day <- sprintf("%s 00:00:00", as.Date(end_date_char))
-
-  diff_minutes_first_day <- as.double(difftime(
-    as.POSIXct(last_time_first_day, tz = timezone),
-    as.POSIXct(start_date_char, tz = timezone),
-    units = "mins"
+  # Get all dates within and including the start/end dates
+  all_dates <- as.character(seq(
+    from = as.Date(start_date_char),
+    to = as.Date(end_date_char),
+    by = "day"
   ))
-  diff_minutes_last_day <- as.double(difftime(
-    as.POSIXct(end_date_char, tz = timezone),
-    as.POSIXct(first_time_last_day, tz = timezone),
-    units = "mins"
-  ))
+  # Get a start and stop time for each date in range
+  all_start_dates <- sprintf("%s 00:00:00", all_dates)
+  all_start_dates[[1]] <- start_date_char
+  all_end_dates <- sprintf("%s 23:45:00", all_dates)
+  all_end_dates[length(all_end_dates)] <- end_date_char
 
-  count[[1]] <- as.integer((diff_minutes_first_day - 15) / 15)
-  count[length(count)] <- as.integer((diff_minutes_last_day - 15) / 15)
-  times_per_date <- data.frame(date = dates, count = count)
+  # Calculate uptime for each date of the dataset
+  daily_uptimes <- Map(
+    get_sensor_uptime,
+    daily_df_list,
+    all_start_dates,
+    all_end_dates
+  )
+  # Return dataset after omitting days with low uptime
+  dates_to_eliminate <- names(daily_uptimes)[unlist(daily_uptimes) < uptime_threshold]
+  indices_of_rows_to_delete <- which(
+    substr(as.character(dataset$date), 1, 10) %in% dates_to_eliminate
+  )
+  if (length(indices_of_rows_to_delete) == 0) {
+    dataset
+  } else{
+    dataset[-indices_of_rows_to_delete, ]
+  }
 }

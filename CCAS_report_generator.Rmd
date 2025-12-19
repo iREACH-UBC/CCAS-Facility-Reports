@@ -118,14 +118,6 @@ units <- list(
 outdoor_data_hr_avg <- timeAverage(outdoor_data, avg.time = "hour")
 indoor_data_hr_avg <- timeAverage(indoor_data, avg.time = "hour")
 
-# 24 hr averages
-outdoor_data_24hr_avg <- timeAverage(outdoor_data, avg.time = "day")
-indoor_data_24hr_avg <- timeAverage(indoor_data, avg.time = "day")
-
-# Round AQHI after taking average
-outdoor_data_24hr_avg$AQHI <- round(outdoor_data_24hr_avg$AQHI)
-indoor_data_24hr_avg$AQHI <- round(indoor_data_24hr_avg$AQHI)
-
 # Calculate sensor uptime
 outdoor_uptime <- get_sensor_uptime(
   outdoor_data, params$start_date_char_outdoors, params$end_date_char_outdoors
@@ -134,42 +126,28 @@ indoor_uptime <- get_sensor_uptime(
   indoor_data, params$start_date_char_indoors, params$end_date_char_indoors
 )
 
-# Get calendar plot datasets
-outdoor_daily_df_list <- separate_df_by_day(
-  outdoor_data,
-  substr(params$start_date_char_outdoors, 1, 10),
-  substr(params$end_date_char_outdoors, 1, 10)
+# Get datasets with low uptime days removed (using 50% uptime threshold)
+outdoor_calendar_data <- remove_days_with_low_uptime(
+  outdoor_data, params$start_date_char_outdoors,
+  params$end_date_char_outdoors, 0.5
 )
-all_dates_outdoors <- as.character(seq(
-  from = as.Date(params$start_date_char_outdoors),
-  to = as.Date(params$end_date_char_outdoors),
-  by = "day"
-))
-all_start_dates_outdoors <- sprintf("%s 00:00:00", all_dates_outdoors)
-all_start_dates_outdoors[[1]] <- params$start_date_char_outdoors
-all_end_dates_outdoors <- sprintf("%s 23:45:00", all_dates_outdoors)
-all_end_dates_outdoors[length(all_end_dates_outdoors)] <- params$end_date_char_outdoors
-
-outdoor_daily_uptimes <- Map(
-  get_sensor_uptime,
-  outdoor_daily_df_list,
-  all_start_dates_outdoors,
-  all_end_dates_outdoors
+indoor_calendar_data <- remove_days_with_low_uptime(
+  indoor_data, params$start_date_char_indoors,
+  params$end_date_char_indoors, 0.5
 )
 
-target_start = replicate(6, "2025-10-01 00:00:00"),
-target_end = replicate(6, "2025-10-31 23:45:00"),
-
-outdoor_daily_uptimes <- lapply(outdoor_daily_df_list, get_sensor_uptime)
-
-indoor_daily_df_list <- separate_df_by_day(
-  indoor_data,
-  substr(params$start_date_char_indoors, 1, 10),
-  substr(params$end_date_char_indoors, 1, 10)
+# Get 24 hr avg datasets with low uptime days removed and AQHI rounded
+outdoor_cal_data_24hr_avg <- timeAverage(
+  outdoor_calendar_data, avg.time = "day"
 )
+outdoor_cal_data_24hr_avg$AQHI <- round(outdoor_cal_data_24hr_avg$AQHI)
+indoor_cal_data_24hr_avg <- timeAverage(
+  indoor_calendar_data, avg.time = "day"
+)
+indoor_cal_data_24hr_avg$AQHI <- round(indoor_cal_data_24hr_avg$AQHI)
 ```
 
-```{r Load plotting functions, include = FALSE, message = FALSE, warning = FALSE}
+```{r Load plotting functions and plotting helpers, include = FALSE, message = FALSE, warning = FALSE}
 make_pollutant_calendar_plot <- function(
     dataset, dataset_col_name, year_int, month_int,
     title_expression, threshold_value, colours) {
@@ -383,14 +361,14 @@ If you have questions, please email Prof. Naomi Zimmerman, Caroline Webber or Hu
 
 Sensor uptime is the proportion of time that a sensor collects data.
 
-Your **outdoor sensor** had an uptime of **`r round(outdoor_uptime*100, digits = 1)`%** for `r month_char` `r year`.
+Your **outdoor sensor** had an uptime of **`r round(outdoor_uptime*100, digits = 0)`%** for `r month_char` `r year`.
 
-Your **indoor sensor** had an uptime of **`r round(indoor_uptime*100, digits = 1)`%** for `r month_char` `r year`.
+Your **indoor sensor** had an uptime of **`r round(indoor_uptime*100, digits = 0)`%** for `r month_char` `r year`.
 
 
 
 # Air Quality Health Index (AQHI)
-
+\vspace{-10pt}
 ## What is the Air Quality Health Index (AQHI)?
 
 The Air Quality Health Index (AQHI) is a scale that helps you understand how the air around you can affect your health.
@@ -404,18 +382,22 @@ Based on data collected at your facility, we calculated the indoor and outdoor A
 
 ## Calendar plots
 \vspace{-5pt}
-```{r Outdoor AQHI calendar plot , echo = FALSE, fig.show="hold", out.width="50%", fig.height = 5.8}
+```{r Outdoor AQHI calendar plot , echo = FALSE, fig.show="hold", out.width="50%", fig.height = 5.7}
 make_aqhi_calendar_plot(
-  dataset = outdoor_data_24hr_avg,
+  dataset = outdoor_cal_data_24hr_avg,
   dataset_col_name = "AQHI",
   year_int = year, month_int = month_int, is_outdoor_data = TRUE
 )
 make_aqhi_calendar_plot(
-  dataset = indoor_data_24hr_avg,
+  dataset = indoor_cal_data_24hr_avg,
   dataset_col_name = "AQHI",
   year_int = year, month_int = month_int, is_outdoor_data = FALSE
 )
 ```
+\begin{center}
+\footnotesize
+\vspace{-25pt}Note that uncoloured squares on a calendar plot correspond to days with low sensor uptime.
+\end{center}
 \newpage
 
 # Nitrogen Dioxide (NO~2~)
@@ -467,7 +449,7 @@ invisible(table_nums(name = "no2_table", caption = sprintf(
 ## Calendar plots
 ```{r NO2 calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%", fig.height = 6}
 make_pollutant_calendar_plot(
-  dataset = outdoor_data,
+  dataset = outdoor_calendar_data,
   dataset_col_name = "NO2",
   year_int = year,
   month_int = month_int,
@@ -476,7 +458,7 @@ make_pollutant_calendar_plot(
   colours = no2_smoothed_colours
 )
 make_pollutant_calendar_plot(
-  dataset = indoor_data,
+  dataset = indoor_calendar_data,
   dataset_col_name = "NO2",
   year_int = year,
   month_int = month_int,
@@ -485,6 +467,10 @@ make_pollutant_calendar_plot(
   colours = no2_smoothed_colours
 )
 ```
+\begin{center}
+\footnotesize
+\vspace{-25pt}Note that uncoloured squares on a calendar plot correspond to days with low sensor uptime.
+\end{center}
 
 ## Hourly average plots
 ```{r NO2 diurnal plots, fig.height=4, echo=FALSE}
@@ -538,7 +524,7 @@ get_pollutant_table(
 ## Calendar plots
 ```{r PM2.5 calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%", fig.height = 6}
 make_pollutant_calendar_plot(
-  dataset = outdoor_data,
+  dataset = outdoor_calendar_data,
   dataset_col_name = "PM2_5",
   year_int = year,
   month_int = month_int,
@@ -549,7 +535,7 @@ make_pollutant_calendar_plot(
   colours = pm2_5_smoothed_colours
 )
 make_pollutant_calendar_plot(
-  dataset = indoor_data,
+  dataset = indoor_calendar_data,
   dataset_col_name = "PM2_5",
   year_int = year,
   month_int = month_int,
@@ -558,6 +544,10 @@ make_pollutant_calendar_plot(
   colours = pm2_5_smoothed_colours
 )
 ```
+\begin{center}
+\footnotesize
+\vspace{-25pt}Note that uncoloured squares on a calendar plot correspond to days with low sensor uptime.
+\end{center}
 
 ## Hourly average plots
 ```{r PM2.5 diurnal plots, fig.height=4, echo=FALSE}
@@ -608,7 +598,7 @@ get_pollutant_table(
 ## Calendar plots
 ```{r CO calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%", fig.height = 6}
 make_pollutant_calendar_plot(
-  dataset = outdoor_data,
+  dataset = outdoor_calendar_data,
   dataset_col_name = "CO",
   year_int = year,
   month_int = month_int,
@@ -617,7 +607,7 @@ make_pollutant_calendar_plot(
   colours = co_colours
 )
 make_pollutant_calendar_plot(
-  dataset = indoor_data,
+  dataset = indoor_calendar_data,
   dataset_col_name = "CO",
   year_int = year,
   month_int = month_int,
@@ -626,6 +616,10 @@ make_pollutant_calendar_plot(
   colours = co_colours
 )
 ```
+\begin{center}
+\footnotesize
+\vspace{-25pt}Note that uncoloured squares on a calendar plot correspond to days with low sensor uptime.
+\end{center}
 
 ## Hourly average plots
 ```{r CO diurnal plots, fig.height=4, echo=FALSE}
@@ -678,7 +672,7 @@ get_pollutant_table(
 ## Calendar plot
 ```{r O3 calendar plot outdoors, echo = FALSE, out.width="50%", fig.align = "center", fig.height = 6}
 make_pollutant_calendar_plot(
-  dataset = outdoor_data,
+  dataset = outdoor_calendar_data,
   dataset_col_name = "O3",
   year_int = year,
   month_int = month_int,
@@ -687,6 +681,10 @@ make_pollutant_calendar_plot(
   colours = o3_smoothed_colours
 )
 ```
+\begin{center}
+\footnotesize
+\vspace{-25pt}Note that uncoloured squares on a calendar plot correspond to days with low sensor uptime.
+\end{center}
 
 ## Hourly average plot
 ```{r diurnal_O3_outdoors, fig.height=4, echo=FALSE}
@@ -740,7 +738,7 @@ get_pollutant_table(
 ## Calendar plots
 ```{r CO2 calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%", fig.height = 6}
 make_pollutant_calendar_plot(
-  dataset = outdoor_data,
+  dataset = outdoor_calendar_data,
   dataset_col_name = "CO2",
   year_int = year,
   month_int = month_int,
@@ -749,7 +747,7 @@ make_pollutant_calendar_plot(
   colours = co2_colours
 )
 make_pollutant_calendar_plot(
-  dataset = indoor_data,
+  dataset = indoor_calendar_data,
   dataset_col_name = "CO2",
   year_int = year,
   month_int = month_int,
@@ -758,6 +756,10 @@ make_pollutant_calendar_plot(
   colours = co2_colours
 )
 ```
+\begin{center}
+\footnotesize
+\vspace{-25pt}Note that uncoloured squares on a calendar plot correspond to days with low sensor uptime.
+\end{center}
 
 ## Hourly average plots
 ```{r CO2 diurnal plots, fig.height=4, echo=FALSE}
