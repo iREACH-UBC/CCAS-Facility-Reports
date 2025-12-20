@@ -118,13 +118,15 @@ process_pollutant_data_df <- function(
 #'
 #' @param csv_dir Directory (char) of sensor data csv.
 #' @param start_date_char Char representing target start date in
-#'  sensor datasets, in YYYY-MM-DD HH:MM:SS format. Represents PST time if dates in 
-#'  Nov-Mar, and PDT if dates in Apr-Oct.
+#'  sensor datasets, in YYYY-MM-DD HH:MM:SS format. Represents PST time
+#'  if dates in Nov-Mar, and PDT if dates in Apr-Oct.
 #' @param end_date_char Char representing target end date in
-#'  sensor datasets, in YYYY-MM-DD HH:MM:SS format. Represents PST time if dates in 
-#'  Nov-Mar, and PDT if dates in Apr-Oct.
-#' @param outdoor_processed_data_folder Name (char) of outdoor processed data folder.
-#' @param indoor_processed_data_folder Name (char) of indoor processed data folder.
+#'  sensor datasets, in YYYY-MM-DD HH:MM:SS format. Represents PST time
+#'  if dates in Nov-Mar, and PDT if dates in Apr-Oct.
+#' @param outdoor_processed_data_folder Name (char) of outdoor
+#'  processed data folder.
+#' @param indoor_processed_data_folder Name (char) of indoor
+#'  processed data folder.
 #' @param dates_in_utc TRUE if csv dates are in UTC timezone,
 #'  FALSE if in local time. Always FALSE if data is processed
 #'  (in a processed data folder). Manual data from RAMPs are
@@ -136,48 +138,31 @@ get_processed_df_from_csv <- function(
   outdoor_processed_data_folder, indoor_processed_data_folder,
   dates_in_utc, month_int, year_int
 ) {
-  print(csv_dir)
-  print(start_date_char)
-  print(end_date_char)
-  print(outdoor_processed_data_folder)
-  print(indoor_processed_data_folder)
-  print(dates_in_utc)
-  print(month_int)
-  print(year_int)
-
   df <- readr::read_csv(csv_dir, show_col_types = FALSE)
-  print("Read csv")
-  print(nrow(df))
-  print(ncol(df))
 
   if ( # Check if csv data is processed
     (length(grep(indoor_processed_data_folder, csv_dir)) != 0) || (
       length(grep(outdoor_processed_data_folder, csv_dir)) != 0
     )
   ) {
-    print("Found that dataset is already processed")
     # Set timezone manually
     if (month_int == 3 || month_int == 11) {
       df$date <- lubridate::force_tz(
         df$date, tzone = "Etc/GMT+8"
       )
     } else {
-      print(length(df$date))
       df$date <- lubridate::force_tz(
         df$date, tzone = "US/Pacific"
       )
     }
     df # Return already processed df
   } else {
-    print("Found that dataset is unprocessed")
     if (sensor_data_is_from_git(names(df))) {
-      print("Found that sensor data is from Git")
       # Process data from Github
       df <- process_sensor_data_df(
         df, month_int, year_int, start_date_char, end_date_char
       )
     } else if (sensor_data_manually_generated(names(df))) {
-      print("Found that sensor data is generated manually")
       # Process manually calibrated data
       df <- process_pollutant_data_df(
         df, start_date_char, end_date_char,

@@ -491,7 +491,7 @@ PM~2.5~ refers to fine particles in the air that are smaller than 2.5 microns in
 Outside, PM~2.5~ comes from sources such as vehicle exhaust and wildfires. Indoor sources include gas or wood stoves, furnaces, and tobacco smoke.
 Exposure to PM~2.5~ can affect children’s health by irritating the eyes, nose, and throat, lowering lung function, and increasing the risk of developing asthma.
 Metro Vancouver’s air quality guidelines recommend that 24-hour exposure should stay below 25 µg/m^3^, and the yearly average should not exceed 8 µg/m^3^.
-Since there is no safe minimum level pf PM~2.5~, it is recommended to keep exposure as low as reasonably possible.
+Since there is no safe minimum level of PM~2.5~, it is recommended to keep exposure as low as reasonably possible.
 
 ```{r PM_setup, include=FALSE}
 pm2_5_diurnals <- get_diurnal_plots(

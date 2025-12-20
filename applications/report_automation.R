@@ -138,7 +138,7 @@ get_report_from_git_csvs <- function(
 #' Generates indoor and outdoor datasets from Git, saves them to csvs,
 #'  and uses them to produce CCAS facility reports. Creates reports for all
 #'  locations in sensor data json that have indoor/outdoor data files for
-#'  the month available on Git.
+#'  the month available on Git. Assumes same date range for all sensor datasets.
 #'
 #' @param month_char Full name of month (char).
 #' @param year_int Integer representing year.
@@ -150,11 +150,13 @@ get_report_from_git_csvs <- function(
 #'  time if dates in Nov-Mar, and PDT if dates in Apr-Oct.
 #' @param sensor_metadata Data (list) read from sensor json file.
 #' @param overall_report_folder_name Name (char) of facility reports folder.
+#'  Does not include sub-folders.
 #' @param overall_photos_folder_name Name (char) of facility photos folder.
+#'  Does not include sub-folders.
 #' @param overall_outdoor_data_folder Name (char) of
-#'  outdoor sensor data csv folder.
+#'  outdoor sensor data csv folder. Does not include sub-folders.
 #' @param overall_indoor_data_folder Name (char) of
-#'  indoor sensor data csv folder.
+#'  indoor sensor data csv folder. Does not include sub-folders.
 get_all_reports_from_git_csvs <- function(
   month_char, year_int, start_date_char,
   end_date_char, sensor_metadata,
@@ -202,10 +204,12 @@ get_all_reports_from_git_csvs <- function(
 #' 
 #' @param outdoor_csv_dir Directory (char) of outdoor data csv.
 #' @param indoor_csv_dir Directory (char) of indoor data csv.
-#' @param outdoor_processed_data_folder Name (char) of outdoor processed data folder
-#' @param indoor_processed_data_folder Name (char) of indoor processed data folder
-#' @param report_folder Name (char) of overall folder where reports are stored. Does
-#'  not include sub-folders.
+#' @param outdoor_processed_data_folder Name (char) of outdoor
+#'  processed data folder
+#' @param indoor_processed_data_folder Name (char) of indoor
+#'  processed data folder
+#' @param report_folder Name (char) of overall folder where
+#'  reports are stored. Does not include sub-folders.
 #' @param start_date_char_outdoors Char representing target start date in
 #'  outdoor dataset, in YYYY-MM-DD HH:MM:SS format. Represents PST
 #'  time if dates in Nov-Mar, and PDT if dates in Apr-Oct.
@@ -258,9 +262,11 @@ get_report_from_csvs <- function(
   month_int <- match(month_char, month.name)
   month_abbrev <- month.abb[month_int]
 
-  print("Here")
-
   # Read data from csvs, process data if needed
+  print(sprintf(
+    "Reading data for sensor %s, processing data if needed",
+    outdoor_sensor_id
+  ))
   processed_outdoor_df <- get_processed_df_from_csv(
     csv_dir = outdoor_csv_dir,
     start_date_char = start_date_char_outdoors,
@@ -271,9 +277,10 @@ get_report_from_csvs <- function(
     month_int = month_int,
     year_int = year_int
   )
-  print("Got processed outdoor df")
-  print(nrow(processed_outdoor_df))
-  print(ncol(processed_outdoor_df))
+  print(sprintf(
+    "Reading data for sensor %s, processing data if needed",
+    indoor_sensor_id
+  ))
   processed_indoor_df <- get_processed_df_from_csv(
     csv_dir = indoor_csv_dir,
     start_date_char = start_date_char_indoors,
@@ -284,13 +291,13 @@ get_report_from_csvs <- function(
     month_int = month_int,
     year_int = year_int
   )
-  print("Got processed indoor df")
-  print(nrow(processed_indoor_df))
-  print(ncol(processed_indoor_df))
 
   # Save outdoor and indoor data to csvs with standardized name conventions,
   #  if they do not already exist
   if ((length(grep(outdoor_processed_data_folder, outdoor_csv_dir)) == 0)) {
+    print(sprintf(
+      "Saving sensor %s data to a csv.", outdoor_sensor_id
+    ))
     save_sensor_data_csv(
       month_char = month_char,
       year_int = year_int,
@@ -299,9 +306,11 @@ get_report_from_csvs <- function(
       timezone = lubridate::tz(processed_outdoor_df$date),
       sensor_id = outdoor_sensor_id
     )
-    print("Saved outdoor csv")
   }
   if ((length(grep(indoor_processed_data_folder, indoor_csv_dir)) == 0)) {
+    print(sprintf(
+      "Saving sensor %s data to a csv.", indoor_sensor_id
+    ))
     save_sensor_data_csv(
       month_char = month_char,
       year_int = year_int,
@@ -310,9 +319,12 @@ get_report_from_csvs <- function(
       timezone = lubridate::tz(processed_indoor_df$date),
       sensor_id = indoor_sensor_id
     )
-    print("Saved indoor csv")
   }
+
   # Generate report
+  print(sprintf(
+    "Generating report for %s.", chartr("_", " ", location)
+  ))
   generate_one_report(
     year_int = year_int,
     month_char = month_char,
@@ -331,4 +343,119 @@ get_report_from_csvs <- function(
       report_folder, sprintf("%s%s_reports", month_abbrev, year_int)
     )
   )
+}
+
+
+#' Reads indoor and outdoor data from unprocessed csvs, processes
+#'  them, and saves them to csvs with standardized name conventions
+#'  and file locations. Generates CCAS facility report with this data.
+#' Assumes same date range for all sensor datasets. Assumes unprocessed
+#'  sensor file names contain sensor ID followed by _pred, ex. 2029_pred.
+#'  Assumes QAQ data files have MOD in their file name, and all other
+#'  data files come from RAMPs.
+#'
+#' @param unprocessed_data_folder_dir Directory (char) of folder
+#'  of manually calibrated sensor data csvs.
+#' @param sensor_metadata Data (list) read from sensor json file.
+#' @param start_date_char Char representing target start date in
+#'  sensor datasets, in YYYY-MM-DD HH:MM:SS format. Represents PST
+#'  time if dates in Nov-Mar, and PDT if dates in Apr-Oct.
+#' @param end_date_char Char representing target end date in
+#'  sensor datasets, in YYYY-MM-DD HH:MM:SS format. Represents PST
+#'  time if dates in Nov-Mar, and PDT if dates in Apr-Oct.
+#' @param ramps_in_utc TRUE if RAMP datasets are in UTC timezone,
+#'  FALSE if in local time. Set to FALSE if you are using processed
+#'  data (from processed data folder)
+#' @param qaqs_in_utc TRUE if QAQ datasets are in UTC timezone,
+#'  FALSE if in local time. Set to FALSE if you are using processed
+#'  data (from processed data folder)
+#' @param outdoor_processed_data_folder Name (char) of outdoor
+#'  processed data folder
+#' @param indoor_processed_data_folder Name (char) of indoor
+#'  processed data folder
+#' @param report_folder Name (char) of overall folder where
+#'  reports are stored. Does not include sub-folders.
+#' @param month_char Full name of month (char).
+#' @param year_int Integer representing year.
+#' @param overall_photos_folder_name Name (char) of facility photos folder.
+#'  Does not include sub-folders.
+get_reports_from_manual_csvs <- function(
+  unprocessed_data_folder_dir,
+  sensor_metadata,
+  start_date_char,
+  end_date_char,
+  ramps_in_utc,
+  qaqs_in_utc,
+  outdoor_processed_data_folder,
+  indoor_processed_data_folder,
+  report_folder,
+  month_char,
+  year_int,
+  overall_photos_folder_name
+) {
+  # Gets list of file directories from unprocessed data folder
+  sensor_files <- list.files(
+    path = unprocessed_data_folder_dir,
+    recursive = TRUE,
+    full.names = TRUE
+  )
+  # Get report for each location in dataset
+  for (location in names(sensor_metadata)) {
+    location_data <- sensor_metadata[[location]]
+    outdoor_sensor_id <- location_data[["outdoor_sensor_ID"]]
+    indoor_sensor_id <- location_data[["indoor_sensor_ID"]]
+    location_photo_file <- location_data[["photo_file_name"]]
+
+    # Gets outdoor and indoor data files from folder
+    outdoor_csv_dir <- sensor_files[grepl(sprintf(
+      "%s_pred", outdoor_sensor_id
+    ), sensor_files)]
+    indoor_csv_dir <- sensor_files[grepl(sprintf(
+      "%s_pred", indoor_sensor_id
+    ), sensor_files)]
+
+    # Check if data exists
+    if (length(outdoor_csv_dir) != 0 && length(indoor_csv_dir != 0)) {
+      # Get timezone of data
+      if (grepl("MOD", outdoor_csv_dir)) {
+        outdoor_dates_in_utc <- qaqs_in_utc
+      } else {
+        outdoor_dates_in_utc <- ramps_in_utc
+      }
+      if (grepl("MOD", indoor_csv_dir)) {
+        indoor_dates_in_utc <- qaqs_in_utc
+      } else {
+        indoor_dates_in_utc <- ramps_in_utc
+      }
+
+      # Generate report
+      get_report_from_csvs(
+        outdoor_csv_dir = outdoor_csv_dir,
+        indoor_csv_dir = indoor_csv_dir,
+        outdoor_processed_data_folder = outdoor_processed_data_folder,
+        indoor_processed_data_folder = indoor_processed_data_folder,
+        report_folder = report_folder,
+        start_date_char_outdoors = start_date_char,
+        end_date_char_outdoors = end_date_char,
+        start_date_char_indoors = start_date_char,
+        end_date_char_indoors = end_date_char,
+        outdoor_dates_in_utc = outdoor_dates_in_utc,
+        indoor_dates_in_utc = indoor_dates_in_utc,
+        month_char = month_char,
+        year_int = year_int,
+        outdoor_sensor_id = outdoor_sensor_id,
+        indoor_sensor_id = indoor_sensor_id,
+        location = location,
+        facility_photo_dir = file.path(
+          overall_photos_folder_name, location_photo_file
+        )
+      )
+    } else {
+      print(sprintf(paste(
+        "Data unavailable for one or both sensors at %s.",
+        "Could not generate report for this location."
+      ), gsub("_", " ", location))
+      )
+    }
+  }
 }
