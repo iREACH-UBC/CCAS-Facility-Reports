@@ -133,6 +133,7 @@ process_pollutant_data_df <- function(
 #'  often in local time, and manual data from QAQs are often in UTC.
 #' @param month_int Integer representing month.
 #' @param year_int Integer representing year.
+#' @return Dataframe of processed sensor data.
 get_processed_df_from_csv <- function(
   csv_dir, start_date_char, end_date_char,
   outdoor_processed_data_folder, indoor_processed_data_folder,

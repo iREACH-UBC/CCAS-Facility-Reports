@@ -53,21 +53,10 @@ patrick::with_parameters_test_that(
   starts = c("2025-10-27", "2025-09-30"),
   stops = c("2025-11-01", "2025-10-05"),
   sensor_ids = c("MOD-00631", "2029"),
-  csv_dirs = c("tests/test_files/631_data.csv", "tests/test_files/2029_data.csv")
+  csv_dirs = c(
+    "tests/test_files/631_data.csv", "tests/test_files/2029_data.csv"
+  )
 )
-
-
-# testthat::test_that(desc = "Test get_aqhi_column", code = {
-#   df <- readr::read_csv("tests/test_files/file_without_aqhi.csv", show_col_types = FALSE)
-#   expected_aqhi <- c( # Computed manually in Excel
-#     NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-#     2, 2, 2, 2, 2, 3, NA, NA, 2, 2, 2, 2, 2, 2, 2, NA, NA, NA, 2, 2, 2, 2, 0, 2,
-#     2, 2, 1, 2, 2, 2
-#   )
-
-#   # Test that the result is the correct value
-#   testthat::expect_equal(get_aqhi_column(df), expected_aqhi)
-# })
 
 
 testthat::test_that(desc = "Test separate_df_by_day", code = {
@@ -81,21 +70,24 @@ testthat::test_that(desc = "Test separate_df_by_day", code = {
   expected_list <- list(
     "2025-10-01" = data.frame(
       date = as.POSIXct(
-        c("2025-10-01 01:12:00", "2025-10-01 02:27:00", "2025-10-01 02:42:00"), tz = timezone
+        c("2025-10-01 01:12:00", "2025-10-01 02:27:00", "2025-10-01 02:42:00"),
+        tz = timezone
       ),
       col2 = c(3, 7, 52),
       col3 = c(3, 2, 0)
     ),
     "2025-10-02" = data.frame(
       date = as.POSIXct(c(
-        "2025-10-02 00:57:00", "2025-10-02 01:12:00", "2025-10-02 01:27:00", "2025-10-02 01:42:00",
-        "2025-10-02 01:57:00", "2025-10-02 02:12:00", "2025-10-02 02:27:00", "2025-10-02 02:42:00"
+        "2025-10-02 00:57:00", "2025-10-02 01:12:00", "2025-10-02 01:27:00",
+        "2025-10-02 01:42:00", "2025-10-02 01:57:00", "2025-10-02 02:12:00",
+        "2025-10-02 02:27:00", "2025-10-02 02:42:00"
       ), tz = timezone),
       col2 = c(NA, NA, NA, NA, 1, 3, 6, 227),
       col3 = c(NA, NA, NA, NA, 29, 7, 12, 24)
     ),
     "2025-10-03" = data.frame(
-      date = as.POSIXct(c("2025-10-03 02:57:00", "2025-10-03 03:12:00"), tz = timezone),
+      date = as.POSIXct(c("2025-10-03 02:57:00", "2025-10-03 03:12:00"),
+      tz = timezone),
       col2 = c(3, 46),
       col3 = c(22, 10)
     ),
@@ -114,13 +106,17 @@ testthat::test_that(desc = "Test separate_df_by_day", code = {
     ),
     "2025-10-06" = empty_df,
     "2025-10-07" = data.frame(
-      date = as.POSIXct(c("2025-10-07 04:42:00", "2025-10-07 04:57:00"), tz = timezone),
+      date = as.POSIXct(
+        c("2025-10-07 04:42:00", "2025-10-07 04:57:00"), tz = timezone
+      ),
       col2 = c(427, 237),
       col3 = c(2, 5)
     ),
     "2025-10-08" = empty_df, "2025-10-09" = empty_df, "2025-10-10" = empty_df,
     "2025-10-11" = data.frame(
-      date = as.POSIXct(c("2025-10-11 05:12:00", "2025-10-11 05:27:00"), tz = timezone),
+      date = as.POSIXct(
+        c("2025-10-11 05:12:00", "2025-10-11 05:27:00"), tz = timezone
+      ),
       col2 = c(20, 2),
       col3 = c(1, 4)
     ),

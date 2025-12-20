@@ -7,7 +7,7 @@
 source("applications/report_automation.R")
 
 # Start user adjustable parameters part 1
-month_char <- "October"
+month_char <- "December"
 year_int <- 2025
 # End user adjustable parameters part 1
 
@@ -27,8 +27,8 @@ get_all_reports_from_git_csvs(
   start_date_char = start_date_char,
   end_date_char = end_date_char,
   sensor_metadata = jsonlite::fromJSON(json_file_dir),
-  overall_report_folder_name = "test_pipeline_reports3", # Change to facility_reports
+  overall_report_folder_name = "facility_reports",
   overall_photos_folder_name = "facility_photos",
-  overall_outdoor_data_folder = "test_pipeline_outdoor3", # Change to outdoor_data_processed
-  overall_indoor_data_folder = "test_pipeline_indoor3" # Change to indoor_data_processed
+  overall_outdoor_data_folder = "outdoor_data_processed",
+  overall_indoor_data_folder = "indoor_data_processed"
 )

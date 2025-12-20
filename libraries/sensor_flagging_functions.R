@@ -50,7 +50,8 @@ get_expected_num_times_per_dataset <- function(
 
 
 #' Calculates the proportion of time a sensor is operational. Assumes
-#'  sensor data is sampled every 15 minutes.
+#'  sensor data is sampled every 15 minutes. Assumes at least one
+#'  expected data entry in dataset (end date > start date).
 #'
 #' @param dataset Dataframe of processed sensor data. Assumes no duplicate
 #'  date entries in dataset. Dataframe must not have date entries before
