@@ -15,3 +15,7 @@ test_pipeline_reports3
 MOD-00617_pred_2025_10_01.csv
 MOD-00629_pred_2025_10_01.csv
 Nov_unprocessed_data
+reprocess.R
+report_tester
+reprocess_indoor
+reprocess_outdoor
