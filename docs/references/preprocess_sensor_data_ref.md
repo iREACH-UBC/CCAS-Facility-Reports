@@ -50,7 +50,7 @@ Dataframe of processed sensor data.
 
 ## get_processed_df_from_csv
 
-Given a csv directory, generates sensor data that is ready to use in  CCAS report generator. Assumes that csv has been processed to run  in CCAS report generator if it is in the standard outdoor or indoor  processed data folder. Assumes that csv came from Github if it has  same columns as Github files, or that csv came from manual  calibrations if it contains same columns as manually calibrated data. 
+Given a csv directory, generates sensor data that is ready to use in  CCAS report generator. Assumes that csv has already been processed to run  in CCAS report generator if it is in the standard outdoor or indoor  processed data folder. Assumes that csv came from Github if it has  same columns and same column ordering as Github files, or that csv  came from manual calibrations if it contains same columns with same  column ordering as manually calibrated data. 
 
 ### Parameters
 

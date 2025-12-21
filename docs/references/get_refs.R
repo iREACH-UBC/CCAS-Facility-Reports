@@ -3,7 +3,7 @@
 library(stringr)
 
 # === CONFIG ===
-input_file <- "libraries/time_processing_functions.R"  # only adjustable parameter
+input_file <- "libraries/preprocess_sensor_data.R"  # only adjustable parameter
 
 # --- Derive output file path ---
 file_base <- tools::file_path_sans_ext(basename(input_file))
