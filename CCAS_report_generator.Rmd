@@ -1,0 +1,852 @@
+---
+params:
+  year: NULL
+  month: NULL
+  location: NULL
+  start_date_char_outdoors: NULL
+  start_date_char_indoors: NULL
+  end_date_char_outdoors: NULL
+  end_date_char_indoors: NULL
+  facility_photo_dir: NULL
+  outdoor_dataset: NULL
+  indoor_dataset: NULL
+title: "`r params$location` - `r params$month` Outdoor and Indoor AQ Data\\vspace{2pt}"
+subtitle: "UBC Community Clean Air Spaces (CCAS) Research Project\\vspace{-0pt}"
+date: "`r Sys.Date()`"
+font_size: 14pt
+header-includes:
+  - \usepackage{sectsty}
+  - \usepackage{sansmathfonts}
+  - \usepackage{titling}
+  - \pretitle{\begin{center}\Huge\bfseries}   # title font
+  - \posttitle{\end{center}}
+  - \renewcommand{\familydefault}{\sfdefault}
+  - \AtBeginDocument{\fontsize{14pt}{18pt}\selectfont}
+  - \sectionfont{\fontsize{16pt}{20pt}\selectfont}
+  - \subsectionfont{\fontsize{15pt}{18pt}\selectfont}
+  - \subsubsectionfont{\fontsize{14pt}{18pt}\selectfont}
+output:
+  pdf_document:
+    latex_engine: xelatex
+    number_sections: no
+    toc: no
+    fig_caption: no
+  word_document:
+    toc: no
+  html_document:
+    df_print: paged
+    toc: no
+authors: Hugo Dignoes Ricart, Caroline Webber, Krista Traboulay, and Prof. Naomi Zimmerman
+---
+
+```{r setup, include=FALSE}
+library(patchwork)
+library(rmarkdown)
+library(openair)
+library(gtools)
+library(ggplot2)
+library(caret)
+library(plyr)
+library(dplyr)
+library(readr)
+library(purrr)
+library(tidyr)
+library(kableExtra)
+library(tidyverse)
+library(captioner)
+library(lubridate)
+library(lattice)
+library(latticeExtra)
+library(worldmet)
+library(readxl)
+library(grid) # For legend grob
+library(gridExtra) # For extra legend when plotting
+library(png) # For forcing legend to centre
+library(zoo) # For AQHI calculations
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+
+source("libraries/sensor_flagging_functions.R")
+```
+
+```{r, include = FALSE}
+set.seed(1703)
+fig_cap <- captioner::captioner()
+tab_cap <- captioner::captioner("Table")
+figure_nums <- captioner(prefix = "Figure")
+table_nums <- captioner(prefix = "Table")
+```
+
+```{r Adjustable Parameters, include = FALSE, message = FALSE, warning = FALSE}
+print(params)
+month_char <- params$month
+month_int <- match(month_char, month.name) # Keep as is
+year <- params$year
+report_photo <- params$facility_photo_dir
+```
+
+```{r Load and Subset Data, include = FALSE, message = FALSE, warning = FALSE}
+# Load data
+outdoor_data <- params$outdoor_dataset
+indoor_data <- params$indoor_dataset
+
+# Replace negative values with NAs
+outdoor_data <- outdoor_data %>%    
+  mutate(across(
+    where(is.numeric),
+    ~ ifelse(.x < 0, NA, .x)
+))
+indoor_data <- indoor_data %>%    
+  mutate(across(
+    where(is.numeric),
+    ~ ifelse(.x < 0, NA, .x)
+))
+
+# Define pollutants and their units
+pollutants <- c("NO2", "NO", "CO2", "O3", "CO", "PM2_5")
+
+units <- list(
+  NO2 = "ppb",
+  NO = "ppb",
+  CO2 = "ppm",
+  O3 = "ppb",
+  CO = "ppm",
+  PM2_5 = "µg/m³"
+)
+
+# Hourly averages
+outdoor_data_hr_avg <- timeAverage(outdoor_data, avg.time = "hour")
+indoor_data_hr_avg <- timeAverage(indoor_data, avg.time = "hour")
+
+# Calculate sensor uptime
+outdoor_uptime <- get_sensor_uptime(
+  outdoor_data, params$start_date_char_outdoors, params$end_date_char_outdoors
+)
+indoor_uptime <- get_sensor_uptime(
+  indoor_data, params$start_date_char_indoors, params$end_date_char_indoors
+)
+
+# Get datasets with low uptime days removed (using 50% uptime threshold)
+outdoor_calendar_data <- remove_days_with_low_uptime(
+  outdoor_data, params$start_date_char_outdoors,
+  params$end_date_char_outdoors, 0.5
+)
+indoor_calendar_data <- remove_days_with_low_uptime(
+  indoor_data, params$start_date_char_indoors,
+  params$end_date_char_indoors, 0.5
+)
+
+# Get 24 hr avg datasets with low uptime days removed and AQHI rounded
+outdoor_cal_data_24hr_avg <- timeAverage(
+  outdoor_calendar_data, avg.time = "day"
+)
+outdoor_cal_data_24hr_avg$AQHI <- round(outdoor_cal_data_24hr_avg$AQHI)
+indoor_cal_data_24hr_avg <- timeAverage(
+  indoor_calendar_data, avg.time = "day"
+)
+indoor_cal_data_24hr_avg$AQHI <- round(indoor_cal_data_24hr_avg$AQHI)
+```
+
+```{r Load plotting functions and plotting helpers, include = FALSE, message = FALSE, warning = FALSE}
+make_pollutant_calendar_plot <- function(
+    dataset, dataset_col_name, year_int, month_int,
+    title_expression, threshold_value, colours) {
+  calendarPlot(
+    dataset,
+    pollutant = dataset_col_name, year = year_int,
+    month = month_int, limits = c(0, threshold_value),
+    cols = colours,
+    main = title_expression
+  )
+}
+
+make_aqhi_calendar_plot <- function(
+    dataset, dataset_col_name, year_int, month_int,
+    is_outdoor_data) {
+  if (is_outdoor_data) {
+    title <- "Outdoor Air Quality Health Index"
+  } else {
+    title <- "Indoor Air Quality Health Index"
+  }
+  key_labels <- c(
+    "Low - 1", "Low - 2", "Low - 3", "Moderate - 4", "Moderate - 5",
+    "Moderate - 6", "High - 7", "High - 8", "High - 9",
+    "High - 10", "Extreme - 10+"
+  )
+
+  colours <- c(
+    "#00ccff", "#0099cc", "#006699", "#ffff00", "#ffcc00",
+    "#ff9933", "#fe6666", "#ff0000", "#cc0000", "#990000", "#660000"
+  )
+
+  index_breaks <- c(0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, Inf)
+
+  calendarPlot(
+    dataset,
+    pollutant = dataset_col_name, year = year_int,
+    month = month_int, main = title, breaks = index_breaks,
+    cols = colours, labels = key_labels
+  )
+}
+
+# For both indoor and outdoor datasets
+get_diurnal_plots <- function(
+    outdoor_hr_avg_dataset, indoor_hr_avg_dataset, pollutant_name,
+    y_label_expression) {
+  diurnal_outdoor <- timeVariation(outdoor_hr_avg_dataset,
+    pollutant = pollutant_name,
+    ylab = y_label_expression,
+    xlab = "Hour", cols = "blue"
+  )[["plot"]][["hour"]]
+
+  diurnal_indoor <- timeVariation(indoor_hr_avg_dataset,
+    pollutant = pollutant_name,
+    ylab = y_label_expression,
+    xlab = "Hour", cols = "red"
+  )[["plot"]][["hour"]]
+
+  list("outdoor_plot" = diurnal_outdoor, "indoor_plot" = diurnal_indoor)
+}
+
+# Uses specific format to plot
+plot_indoor_outdoor_diurnals <- function(diurnal_list, plot_title) {
+  xrange <- range(
+    diurnal_list$outdoor_plot$x.limits,
+    diurnal_list$indoor_plot$x.limits,
+    finite = TRUE
+  )
+  yrange <- range(
+    diurnal_list$outdoor_plot$y.limits,
+    diurnal_list$indoor_plot$y.limits,
+    finite = TRUE
+  )
+  diurnal_plots <- diurnal_list$outdoor_plot + as.layer(
+    diurnal_list$indoor_plot
+  )
+  diurnals_overlayed <- update(diurnal_plots,
+    main = NULL,
+    xlim = xrange,
+    ylim = yrange,
+    key = list(
+      lines = TRUE,
+      text = list(
+        lab = c("Outdoor", "Indoor"),
+        col = "black"
+      ),
+      inside = TRUE,
+      col = c("blue", "red"),
+      lty = 1,
+      space = "bottom",
+      cex = 0.75
+    )
+  )
+  print(diurnals_overlayed)
+  grid.text( # This updates title font/position
+    plot_title,
+    y = unit(0.94, "npc"),  # move up/down (1 = top, 0 = bottom)
+    gp = gpar(cex = 0.97, fontface = "plain")
+  )
+}
+
+# Used for smoothing calendar plot colour scale
+smooth_colour_bins <- function(
+    colours, breaks, grad_range) {
+  if (length(breaks) != (length(colours) + 1)) {
+    stop("Colour sequences and breaks do not align.")
+  }
+  colour_list <- rep(
+    colours[1], ceiling(breaks[2] - breaks[1] - ceiling(grad_range / 2))
+  )
+
+  for (i in seq(from = 2, to = (length(breaks) - 1))) {
+    gradient <- colorRampPalette(c(colours[i - 1], colours[i]))
+    gradient_colours <- gradient(grad_range) # Takes ceiling
+
+    next_start <- ceiling(breaks[i] + (grad_range / 2))
+    next_stop_mid <- ceiling(breaks[i + 1] - (grad_range / 2))
+
+    if (i < (length(breaks) - 1)) {
+      next_colour <- rep(colours[i], ceiling(next_stop_mid - next_start))
+    } else {
+      next_colour <- rep(colours[i], 0) # size 0 for last colour
+    }
+    colour_list <- c(colour_list, gradient_colours, next_colour)
+  }
+  return(colour_list)
+}
+
+
+get_pollutant_table <- function(
+  pollutant_name, outdoor_hr_avg_dataset,
+  indoor_hr_avg_dataset, show_indoor_data
+) {
+  round_metrics <- function(x) ifelse(x < 1, round(x, 2), round(x, 0))
+
+  quantile75_outdoor <- round_metrics(quantile(
+    outdoor_hr_avg_dataset[[pollutant_name]],
+    na.rm = TRUE
+  )[["75%"]])
+
+  quantile75_indoor <- round_metrics(quantile(
+    indoor_hr_avg_dataset[[pollutant_name]],
+    na.rm = TRUE
+  )[["75%"]])
+
+  # Create a table manually
+  pollutant_metrics <- data.frame(
+    "Location" = c("Outdoors", "Indoors"),
+    "Min" = c(
+      round_metrics(
+        min(outdoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
+      ),
+      round_metrics(
+        min(indoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
+      )
+    ),
+    "Max" = c(
+      round_metrics(
+        max(outdoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
+      ),
+      round_metrics(
+        max(indoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
+      )
+    ),
+    "Median" = c(
+      round_metrics(
+        median(outdoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
+      ),
+      round_metrics(
+        median(indoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
+      )
+    ),
+    "Mean" = c(
+      round_metrics(
+        mean(outdoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
+      ),
+      round_metrics(
+        mean(indoor_hr_avg_dataset[[pollutant_name]], na.rm = TRUE)
+      )
+    ),
+    "75th Percentile" = c(quantile75_outdoor, quantile75_indoor),
+    check.names = FALSE
+  )
+  # Set negatives to zero
+  pollutant_metrics[pollutant_metrics < 0] <- 0
+
+  if (!show_indoor_data) {
+    pollutant_metrics <- head(pollutant_metrics, -1)
+  }
+  knitr::kable(pollutant_metrics)
+}
+```
+\vspace{-35pt}
+# Background and Introduction
+\vspace{-5pt}
+Community Clean Air Spaces (CCAS) are places like libraries and community centres that provide cleaner air, especially during smoky or polluted conditions.
+These spaces use different methods to improve air quality, but we still do not know how effective they are over time or outside of wildfire events.
+This project studies air quality throughout the year to better understand pollution levels and health risks.
+Data from your facility and other CCAS will help identify patterns, learn what makes some spaces more effective, and guide future improvements to air protection.
+
+This report shows your facility’s air monitoring results for `r month_char` `r year`.
+See the Appendix for details on [\underline{\textcolor{blue}{instrumentation and methods}}](#study-instrumentation-and-methods), [\underline{\textcolor{blue}{report goals}}](#report-purpose), and [\underline{\textcolor{blue}{how the data are summarized}}](#how-we-are-summarizing-air-pollution-data).
+If you have questions, please email Prof. Naomi Zimmerman, Caroline Webber or Hugo Dignoes Ricart at  [[\underline{\textcolor{blue}{HelloAirQuality@mech.ubc.ca}}]](mailto:HelloAirQuality@mech.ubc.ca).
+
+
+\begin{center}
+\includegraphics[height=3.1in, keepaspectratio]{`r report_photo`}
+\end{center}
+
+\newpage
+# Sensor Status
+
+Sensor uptime is the proportion of time that a sensor collects data.
+
+Your **outdoor sensor** had an uptime of **`r round(outdoor_uptime*100, digits = 0)`%** for `r month_char` `r year`.
+
+Your **indoor sensor** had an uptime of **`r round(indoor_uptime*100, digits = 0)`%** for `r month_char` `r year`.
+
+
+
+# Air Quality Health Index (AQHI)
+\vspace{-10pt}
+## What is the Air Quality Health Index (AQHI)?
+
+The Air Quality Health Index (AQHI) is a scale that helps you understand how the air around you can affect your health.
+It is a tool meant to guide you in making choices to protect yourself, such as spending less time outside or changing your activities when air pollution levels are high.
+It also gives tips on how to improve the air you breathe.
+The AQHI is especially important for people who are more sensitive to air pollution, offering advice for times when the air poses low, moderate, high, or very high health risks.
+See the Appendix for more details on [\underline{\textcolor{blue}{how the AQHI is calculated}}](#how-is-the-aqhi-calculated) and the [\underline{\textcolor{blue}{AQHI scale}}](#what-is-the-scale-for-the-aqhi).
+
+Based on data collected at your facility, we calculated the indoor and outdoor AQHI. The results are displayed in the calendar plots below.
+
+
+## Calendar plots
+\vspace{-5pt}
+```{r Outdoor AQHI calendar plot , echo = FALSE, fig.show="hold", out.width="50%", fig.height = 5.7}
+make_aqhi_calendar_plot(
+  dataset = outdoor_cal_data_24hr_avg,
+  dataset_col_name = "AQHI",
+  year_int = year, month_int = month_int, is_outdoor_data = TRUE
+)
+make_aqhi_calendar_plot(
+  dataset = indoor_cal_data_24hr_avg,
+  dataset_col_name = "AQHI",
+  year_int = year, month_int = month_int, is_outdoor_data = FALSE
+)
+```
+\begin{center}
+\footnotesize
+\vspace{-25pt}Note that uncoloured squares on a calendar plot correspond to days with low sensor uptime.
+\end{center}
+\newpage
+
+# Nitrogen Dioxide (NO~2~)
+
+## Context
+NO~x~ is a group of gases made up of nitrogen monoxide (NO) and nitrogen dioxide (NO~2~).
+Nitrogen monoxide forms when nitrogen and oxygen in the air mix at high temperatures, like in engines or fires.
+This NO can then react with oxygen to become nitrogen dioxide.
+In this report, we focus on total NO~2~.
+
+Outside, NO~2~ commonly comes from vehicles, aircraft, and power plants that burn fossil fuels.
+Indoors, it can come from sources such as stoves, furnaces, and water heaters.
+Breathing in NO~2~ can irritate your airways and cause coughing, wheezing, and reduced lung function. It can also trigger asthma and affect lung development in children.
+Metro Vancouver recommends that exposure to NO~2~ should stay below 42 parts per billion (ppb) per hour on average, and below 12 ppb on average over a year.
+However, since even small amounts of NO~2~ can harm health, it is best to keep exposure as low as possible.
+
+```{r NO2_setup, include=FALSE}
+no2_diurnals <- get_diurnal_plots(
+  outdoor_data, indoor_data,
+  "NO2", expression(paste(NO[2], " (ppb)"))
+)
+no2_colours <- c("#4C9F49", "yellow", "orange", "red")
+no2_breaks <- c(0, 20.5, 31.5, 42, Inf)
+no2_smoothed_colours <- smooth_colour_bins(
+  colours = no2_colours, breaks = no2_breaks, grad_range = 3
+)
+
+invisible(table_nums(name = "no2_table", caption = sprintf(
+  "NO~2~ metrics (%s) during %s %s over one hour averaging period.", units$NO2, month_char, year
+)))
+```
+\vspace{20pt}
+`r table_nums("no2_table")`
+
+```{r NO2 month metrics, echo = FALSE}
+get_pollutant_table(
+  pollutant_name = "NO2",
+  outdoor_hr_avg_dataset = outdoor_data_hr_avg,
+  indoor_hr_avg_dataset = indoor_data_hr_avg,
+  show_indoor_data = TRUE
+)
+
+invisible(table_nums(name = "no2_table", caption = sprintf(
+  "NO~2~ metrics (%s) during %s %s.", units$NO2, month_char, year
+)))
+```
+\newpage
+
+## Calendar plots
+```{r NO2 calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%", fig.height = 6}
+make_pollutant_calendar_plot(
+  dataset = outdoor_calendar_data,
+  dataset_col_name = "NO2",
+  year_int = year,
+  month_int = month_int,
+  title_expression = "Outdoor NO2 Data (ppb)",
+  threshold_value = 42,
+  colours = no2_smoothed_colours
+)
+make_pollutant_calendar_plot(
+  dataset = indoor_calendar_data,
+  dataset_col_name = "NO2",
+  year_int = year,
+  month_int = month_int,
+  title_expression = "Indoor NO2 Data (ppb)",
+  threshold_value = 42,
+  colours = no2_smoothed_colours
+)
+```
+\begin{center}
+\footnotesize
+\vspace{-25pt}Note that uncoloured squares on a calendar plot correspond to days with low sensor uptime.
+\end{center}
+
+## Hourly average plots
+```{r NO2 diurnal plots, fig.height=4, echo=FALSE}
+plot_indoor_outdoor_diurnals(
+  diurnal_list = no2_diurnals,
+  plot_title = expression(
+    paste("Hourly Averages of Outdoor and Indoor ", NO[2])
+  )
+)
+```
+\newpage
+
+# Particulate Matter (PM~2.5~)
+
+## Context
+
+PM~2.5~ refers to fine particles in the air that are smaller than 2.5 microns in diameter.
+Outside, PM~2.5~ comes from sources such as vehicle exhaust and wildfires. Indoor sources include gas or wood stoves, furnaces, and tobacco smoke.
+Exposure to PM~2.5~ can affect children’s health by irritating the eyes, nose, and throat, lowering lung function, and increasing the risk of developing asthma.
+Metro Vancouver’s air quality guidelines recommend that 24-hour exposure should stay below 25 µg/m^3^, and the yearly average should not exceed 8 µg/m^3^.
+Since there is no safe minimum level of PM~2.5~, it is recommended to keep exposure as low as reasonably possible.
+
+```{r PM_setup, include=FALSE}
+pm2_5_diurnals <- get_diurnal_plots(
+  outdoor_data, indoor_data, "PM2_5",
+  expression(paste(PM[2.5], " (", µg / m^3, ")"))
+)
+pm2_5_colours <- c("#4C9F49", "yellow", "orange", "red")
+pm2_5_breaks <- c(0, 10.5, 18, 25, Inf)
+pm2_5_smoothed_colours <- smooth_colour_bins(
+  colours = pm2_5_colours, breaks = pm2_5_breaks, grad_range = 3
+)
+
+invisible(table_nums(name = "PM2_5_table", caption = sprintf(
+  "PM~2.5~ metrics (%s) during %s %s over one hour averaging period.", units$PM2_5, month_char, year
+)))
+```
+\vspace{20pt}
+`r table_nums("PM2_5_table")`
+
+```{r PM2.5 month metrics, echo = FALSE}
+get_pollutant_table(
+  pollutant_name = "PM2_5",
+  outdoor_hr_avg_dataset = outdoor_data_hr_avg,
+  indoor_hr_avg_dataset = indoor_data_hr_avg,
+  show_indoor_data = TRUE
+)
+```
+\newpage
+
+## Calendar plots
+```{r PM2.5 calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%", fig.height = 6}
+make_pollutant_calendar_plot(
+  dataset = outdoor_calendar_data,
+  dataset_col_name = "PM2_5",
+  year_int = year,
+  month_int = month_int,
+  title_expression = expression(paste(
+    "Outdoor ", PM[2.5], " (", µg / m^3, ")"
+  )),
+  threshold_value = 25,
+  colours = pm2_5_smoothed_colours
+)
+make_pollutant_calendar_plot(
+  dataset = indoor_calendar_data,
+  dataset_col_name = "PM2_5",
+  year_int = year,
+  month_int = month_int,
+  title_expression = expression(paste("Indoor ", PM[2.5], " (", µg / m^3, ")")),
+  threshold_value = 25,
+  colours = pm2_5_smoothed_colours
+)
+```
+\begin{center}
+\footnotesize
+\vspace{-25pt}Note that uncoloured squares on a calendar plot correspond to days with low sensor uptime.
+\end{center}
+
+## Hourly average plots
+```{r PM2.5 diurnal plots, fig.height=4, echo=FALSE}
+plot_indoor_outdoor_diurnals(
+  diurnal_list = pm2_5_diurnals,
+  plot_title = expression(
+    paste("Hourly Averages of Outdoor and Indoor ", PM[2.5])
+  )
+)
+```
+\newpage
+
+# Carbon Monoxide (CO)
+
+## Context
+
+Carbon monoxide (CO) is a gas that forms when fuels do not burn completely, such as during the burning of fossil fuels or wildfires.
+Breathing in CO makes it harder for your body to carry oxygen. This can lead to symptoms like headaches, tiredness, dizziness, nausea, and confusion.
+Metro Vancouver’s air quality guidelines say that the average CO level over one hour should not go above 13 parts per million (ppm), and the average over eight hours should stay below 5 ppm.
+
+```{r CO_setup, include=FALSE}
+co_diurnals <- get_diurnal_plots(
+  outdoor_data, indoor_data, "CO",
+  "CO (ppm)"
+)
+num_colours <- 100
+co_colours <- colorRampPalette(c(
+  "#4C9F49", "#4C9F49", "yellow", "orange", "red"
+), bias = 0.3)(num_colours)
+
+invisible(table_nums(name = "co_table", caption = sprintf(
+  "CO metrics (%s) during %s %s over one hour averaging period.", units$CO, month_char, year
+)))
+```
+\vspace{20pt}
+`r table_nums("co_table")`
+
+```{r CO month metrics, echo = FALSE}
+get_pollutant_table(
+  pollutant_name = "CO",
+  outdoor_hr_avg_dataset = timeAverage(outdoor_data, avg.time = "hour"),
+  indoor_hr_avg_dataset = indoor_data_hr_avg,
+  show_indoor_data = TRUE
+)
+```
+\newpage
+
+## Calendar plots
+```{r CO calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%", fig.height = 6}
+make_pollutant_calendar_plot(
+  dataset = outdoor_calendar_data,
+  dataset_col_name = "CO",
+  year_int = year,
+  month_int = month_int,
+  title_expression = "Outdoor CO (ppm)",
+  threshold_value = 5,
+  colours = co_colours
+)
+make_pollutant_calendar_plot(
+  dataset = indoor_calendar_data,
+  dataset_col_name = "CO",
+  year_int = year,
+  month_int = month_int,
+  title_expression = "Indoor CO (ppm)",
+  threshold_value = 5,
+  colours = co_colours
+)
+```
+\begin{center}
+\footnotesize
+\vspace{-25pt}Note that uncoloured squares on a calendar plot correspond to days with low sensor uptime.
+\end{center}
+
+## Hourly average plots
+```{r CO diurnal plots, fig.height=4, echo=FALSE}
+plot_indoor_outdoor_diurnals(
+  diurnal_list = co_diurnals,
+  plot_title = "Hourly Averages of Outdoor and Indoor CO"
+)
+```
+\newpage
+
+# Ozone (O~3~)
+
+## Context
+\vspace{-5pt}
+Ground-level ozone (O~3~) is not directly released from traffic, but it forms when nitrogen oxides (NO~x~) and volatile organic compounds (VOCs)—which commonly come from traffic—react in sunlight.
+Ground-level ozone is also a main component of smog (smoky fog)
+While ozone in the Earth's stratosphere protects us from harmful ultraviolet (UV) rays, ozone at ground level can be harmful to health.
+
+Exposure to ground-level ozone can cause shortness of breath, rapid breathing, coughing, a sore or scratchy throat, irritation and damage to the airways, and can make lung diseases like asthma, emphysema, and chronic bronchitis worse.
+Metro Vancouver’s air quality guidelines recommend that hourly exposure to ozone should not exceed 82 parts per billion (ppb), and the 8-hour average should stay below 60 ppb.
+In indoor environments, where there is little to no sunlight, ozone concentrations are generally very low and are therefore not included in this report.
+
+```{r O3_setup, include=FALSE}
+o3_diurnals <- get_diurnal_plots(
+  outdoor_data, indoor_data, "O3",
+  expression(paste(O[3], " (ppb)"))
+)
+o3_colours <- c("#4C9F49", "yellow", "orange", "red")
+o3_breaks <- c(0, 50.5, 56.5, 60, Inf)
+o3_smoothed_colours <- smooth_colour_bins(
+  colours = o3_colours, breaks = o3_breaks, grad_range = 3
+)
+invisible(table_nums(name = "o3_table", caption = sprintf(
+  "O~3~ metrics (%s) during %s %s over one hour averaging period.", units$O3, month_char, year
+)))
+```
+\vspace{20pt}
+`r table_nums("o3_table")`
+
+```{r O3 month metrics, echo = FALSE}
+get_pollutant_table(
+  pollutant_name = "O3",
+  outdoor_hr_avg_dataset = outdoor_data_hr_avg,
+  indoor_hr_avg_dataset = indoor_data_hr_avg,
+  show_indoor_data = FALSE
+)
+```
+\newpage
+
+## Calendar plot
+```{r O3 calendar plot outdoors, echo = FALSE, out.width="50%", fig.align = "center", fig.height = 6}
+make_pollutant_calendar_plot(
+  dataset = outdoor_calendar_data,
+  dataset_col_name = "O3",
+  year_int = year,
+  month_int = month_int,
+  title_expression = "Outdoor O3 (ppb)",
+  threshold_value = 60,
+  colours = o3_smoothed_colours
+)
+```
+\begin{center}
+\footnotesize
+\vspace{-25pt}Note that uncoloured squares on a calendar plot correspond to days with low sensor uptime.
+\end{center}
+
+## Hourly average plot
+```{r diurnal_O3_outdoors, fig.height=4, echo=FALSE}
+plot(o3_diurnals$outdoor_plot)
+grid.text(
+  expression(paste("Hourly Average of Outdoor ", O[3])),
+  y = unit(0.94, "npc"),  # move up/down (1 = top, 0 = bottom)
+  gp = gpar(cex = 0.97, fontface = "plain")
+)
+```
+\newpage
+
+# Carbon dioxide (CO~2~)
+
+## Context
+
+Carbon dioxide (CO~2~) is produced when carbon-containing material burns. It also comes from plant and animal respiration.
+CO~2~ is not typically considered an air pollutant, but it is a major contributor to climate change.
+It can also be used to measure how well indoor spaces are ventilated.
+Breathing high levels of CO~2~ can irritate the respiratory system, causing a sore or dry throat, stuffy nose, sneezing, coughing, and eye irritation.
+It can also affect thinking and focus, with symptoms such as headaches, tiredness and fatigue, difficulty with decision-making, dizziness, and trouble concentrating.
+
+```{r CO2_setup, include=FALSE}
+co2_diurnals <- get_diurnal_plots(
+  outdoor_data, indoor_data, "CO2",
+  expression(paste(CO[2], " (ppm)"))
+)
+num_colours <- 100
+co2_colours <- colorRampPalette(
+  c("#4C9F49", "yellow", "orange", "red"),
+  bias = 0.3
+)(num_colours)
+
+invisible(table_nums(name = "co2_table", caption = sprintf(
+  "CO~2~ metrics (%s) during %s %s over one hour averaging period.", units$CO2, month_char, year
+)))
+```
+\vspace{20pt}
+`r table_nums("co2_table")`
+
+```{r CO2 month metrics, echo = FALSE}
+get_pollutant_table(
+  pollutant_name = "CO2",
+  outdoor_hr_avg_dataset = outdoor_data_hr_avg,
+  indoor_hr_avg_dataset = indoor_data_hr_avg,
+  show_indoor_data = TRUE
+)
+```
+\newpage
+
+## Calendar plots
+```{r CO2 calendar plot outdoors, echo = FALSE, fig.show="hold", out.width="50%", fig.height = 6}
+make_pollutant_calendar_plot(
+  dataset = outdoor_calendar_data,
+  dataset_col_name = "CO2",
+  year_int = year,
+  month_int = month_int,
+  title_expression = "Outdoor CO2 (ppb)",
+  threshold_value = 1000,
+  colours = co2_colours
+)
+make_pollutant_calendar_plot(
+  dataset = indoor_calendar_data,
+  dataset_col_name = "CO2",
+  year_int = year,
+  month_int = month_int,
+  title_expression = "Indoor CO2 (ppb)",
+  threshold_value = 1000,
+  colours = co2_colours
+)
+```
+\begin{center}
+\footnotesize
+\vspace{-25pt}Note that uncoloured squares on a calendar plot correspond to days with low sensor uptime.
+\end{center}
+
+## Hourly average plots
+```{r CO2 diurnal plots, fig.height=4, echo=FALSE}
+plot_indoor_outdoor_diurnals(
+  diurnal_list = co2_diurnals,
+  plot_title = expression(
+    paste("Hourly Averages of Outdoor and Indoor ", CO[2])
+  )
+)
+```
+\newpage
+
+# Appendix
+
+## Background
+
+### Study Instrumentation and Methods
+To measure air pollution at your facility, we used low-cost sensors called the SENSIT RAMP (Remote Air Quality Monitoring Platform) and/or the QuantAQ MODULAIR.
+These types of sensors are useful because they make it easier and more affordable to collect air quality data.
+However, since they are lower-cost, they can sometimes fail or give less accurate readings.
+To fix this, the data must be adjusted, or calibrated, to make sure the results are correct.
+Once calibrated, their data are generally reliable. The data in this report have been calibrated.
+
+The patterns and levels of NO~2~, PM~2.5~, CO, CO~2~, and O~3~ outside and inside the facility are shown using graphs and summaries created with the R package ‘openair’ [D. C. Carslaw and Ropkins (2012)].
+
+### Report Purpose
+The goal of this report is to help the reader better understand:
+
+* How to read and interpret Calendar and Hourly Average plots
+* How air pollutant levels change throughout the day at their facility
+* How pollutants are connected to sources such as traffic and wildfire smoke
+
+## How we are summarizing air pollution data
+
+### Calendar Plots
+
+A calendar plot shows the average amount of a pollutant over 24 hours for each day of a month.
+Each date on the calendar is coloured based on how much of the pollutant was measured that day.
+The colours form a gradient, where red shades show higher concentrations that are close to the air quality limits set by regulatory bodies.
+
+
+### Hourly Average Plots
+
+When studying air pollution data, we can learn a lot by looking at how pollution levels change throughout the day.
+An hourly average plot shows the average amount of a pollutant measured at each hour.
+The changes on this plot can help identify where the pollution is coming from.
+Each point on the plot represents the average concentration for that hour across all days of monitoring.
+For example, the point at 6 a.m. shows the average level of pollution measured between 5 and 6 a.m. over the monitoring period.
+The shaded areas above and below each point show how much the levels change from day to day — wider shaded regions mean more variation.
+
+### Units of Measurement
+Air pollutant levels in this report are described using three different units:
+
+1. **Part per billion (ppb)**: This measures how much of a pollutant is in the air by volume, and is similar to a percentage.
+One percent as a fraction is 1/100 = 0.01. One part per billion (ppb) is 1/1,000,000,000 = $1\times10^{-9}$.
+So if a pollutant concentration is 25 ppb, then that means there is $25\times10^{-9}$ m$^{3}$ of the pollutant in one cubic metre of air.
+We use this unit to report concentrations of nitrogen oxides (NO~x~) and ozone (O~3~).
+
+2. **Part per million (ppm)**: This metric is similar to ppb but on a larger scale.
+One part per million (ppm) is 1/1,000,000 = $1\times10^{-6}$.
+So if a pollutant concentration is 25 ppm, then that means there is $25\times10^{-6}$ m$^{3}$ of the pollutant in one cubic metre of air.
+We use this unit to report concentrations of carbon monoxide (CO) and carbon dioxide (CO~2~).
+
+3. **Micrograms per cubic metre (µg/m$^{3}$)**:
+This unit measures the density of particles in the air. One microgram equals $1\times10^{-6}$ grams.
+So, a concentration of 25 µg/m$^{3}$ means there are $25\times10^{-6}$ grams of the pollutant in one cubic meter of air.
+We use this unit to report the concentration of PM~2.5~ (particles smaller than 2.5 microns in diameter).
+
+## AQHI Background
+
+### How is the AQHI calculated?
+
+In British Columbia, the AQHI is calculated in two different ways, and the higher of the two values is
+reported:
+
+1. The first calculation is based on the combined health risks of three common air pollutants:
+    a. Ozone (O~3~) at ground level,
+    b. Particulate Matter (PM~2.5~) and
+    c. Nitrogen Dioxide (NO~2~).
+2. Particulate Matter (PM~2.5~) concentration alone
+
+### What is the scale for the AQHI?
+
+The AQHI is measured on a scale ranging from 1-10+. The AQHI index values are grouped into health risk
+categories as shown below. These categories help you to easily and quickly identify your level of risk.
+
+* 1-3 Low health
+* 4-6 Moderate health risk
+* 7-10 High health risk
+* 10 + Very high health risk

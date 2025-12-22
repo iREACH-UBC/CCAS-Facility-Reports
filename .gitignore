@@ -1,3 +1,20 @@
-other_data
-*.pdf
-preprocess_calibrated_data.R
+test_indoor
+test_outdoor
+test_indoor2
+test_outdoor2
+test_reports
+test_pipeline_indoor
+test_pipeline_outdoor
+test_pipeline_indoor2
+test_pipeline_outdoor2
+test_pipeline_reports2
+test_pipeline_indoor3
+test_pipeline_outdoor3
+test_pipeline_reports3
+2049_pred_2025_10_01 (1).csv
+MOD-00617_pred_2025_10_01.csv
+MOD-00629_pred_2025_10_01.csv
+Nov_unprocessed_data
+report_tester
+reprocess_indoor
+reprocess_outdoor
