@@ -23,9 +23,9 @@ contributions to AQHI. This format is consistent for both indoor
 and outdoor data, and for Sensit RAMP and QuantAQ Modulair
 sensors.
 
-To obtain data from Github, use the get_df_from_git_files
+To obtain data from Github, use the `get_df_from_git_files`
 function in the [file processing functions](../../libraries/file_processing_functions.R) folder.
-See [this reference](../references/file_processing_functions_ref.md) for function documentation.
+See [this reference](../references/file_processing_functions_ref.md#get_df_from_git_files) for function documentation.
 
 ## Manually Calibrated Data
 

@@ -53,4 +53,39 @@ processing. This ensures that users can look back on past data
 and quickly regenerate reports if needed. To save processed data
 to a standard processed data folder (`outdoor_data_processed` or
 `indoor_data_processed`), use the `save_sensor_data_csv`
-function found in [this file](../../libraries/file_processing_functions.R). Documentation for this function can be found [here](../references/file_processing_functions_ref.md).
+function found in [this file](../../libraries/file_processing_functions.R). Documentation for this function can be found [here](../references/file_processing_functions_ref.md#save_sensor_data_csv).
+
+## Reading Processed Data From CSVs
+You may have a csv of processed data and may need to use a
+dataframe of processed data (ex. in a function). The
+easiest way to get this dataframe from the csv is by using
+the `get_processed_df_from_csv` function, which will
+recognize that the csv is already processed. However, if you
+want to get this dataframe yourself, note that you **CANNOT**
+simply read the csv. All of the functions that use processed
+dataframes require that the dates are in POSIX time, with
+data in the months of Nov-Mar in PST, and data in the months
+of Apr-Oct in PDT. Since csvs do not preserve timestamps, you need to add these yourself. You may do this like so:
+```R
+# Adjustable paramters
+example_csv_dir <- "indoor_data_processed/November2025/2020.csv"
+month_char <- "November"
+
+# Get dataframe from csv
+month_int <- match(month_char, month.name)
+df <- readr::read_csv(example_csv_dir)
+
+# Set timezone manually
+if (month_int == 3 || month_int == 11) {
+  df$date <- lubridate::force_tz(
+    df$date, tzone = "Etc/GMT+8" # PST
+  )
+} else {
+  df$date <- lubridate::force_tz(
+    df$date, tzone = "US/Pacific" # PST or PDT
+  )
+}
+```
+Note that the report generator expects all data to be in the
+same month, and all processed data will have
+consistent timezones over a month.

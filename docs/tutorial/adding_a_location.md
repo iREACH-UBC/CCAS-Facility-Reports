@@ -26,5 +26,5 @@ underscores. Inside this json object, add the outdoor sensor ID,
 indoor sensor ID, and file name of the facility photo that you
 uploaded, following the format of the other locations. Note that
 sensor IDs are characters, but indoor sensor IDs can alse be
-integers. Also note that you only need to add the facility file
+integers. Also note that you only need to add the photo file
 name, and not the full directory.
