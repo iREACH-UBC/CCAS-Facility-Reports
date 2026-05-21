@@ -394,6 +394,8 @@ get_reports_from_manual_csvs <- function(
   year_int,
   overall_photos_folder_name
 ) {
+  month_int <- match(month_char, month.name)
+  
   # Gets list of file directories from unprocessed data folder
   sensor_files <- list.files(
     path = unprocessed_data_folder_dir,
@@ -409,14 +411,16 @@ get_reports_from_manual_csvs <- function(
 
     # Gets outdoor and indoor data files from folder
     outdoor_csv_dir <- sensor_files[grepl(sprintf(
-      "%s_pred", outdoor_sensor_id
+      "%s_%04d_%02d", outdoor_sensor_id, year_int, month_int
     ), sensor_files)]
     indoor_csv_dir <- sensor_files[grepl(sprintf(
-      "%s_pred", indoor_sensor_id
+      "%s_%04d_%02d", indoor_sensor_id, year_int, month_int
     ), sensor_files)]
+    
+    
 
     # Check if data exists
-    if (length(outdoor_csv_dir) != 0 && length(indoor_csv_dir != 0)) {
+    if (length(outdoor_csv_dir) != 0 && length(indoor_csv_dir) != 0) {
       # Get timezone of data
       if (grepl("MOD", outdoor_csv_dir)) {
         outdoor_dates_in_utc <- qaqs_in_utc
@@ -455,6 +459,11 @@ get_reports_from_manual_csvs <- function(
       print(sprintf(paste(
         "Data unavailable for one or both sensors at %s.",
         "Could not generate report for this location."
+        #print(outdoor_csv_dir),
+        #print(indoor_csv_dir),
+        
+        #print(length(outdoor_csv_dir)),
+        #print(length(indoor_csv_dir))
       ), gsub("_", " ", location))
       )
     }

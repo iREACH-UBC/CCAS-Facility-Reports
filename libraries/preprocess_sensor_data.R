@@ -141,6 +141,8 @@ get_processed_df_from_csv <- function(
   dates_in_utc, month_int, year_int
 ) {
   df <- readr::read_csv(csv_dir, show_col_types = FALSE)
+  #Normalize DATE column name to date
+  names(df)[names(df) == "DATE"] <- "date"
 
   if ( # Check if csv data is processed
     (length(grep(indoor_processed_data_folder, csv_dir)) != 0) || (

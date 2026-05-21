@@ -1,4 +1,14 @@
 {
+    "CMUC_Church": {
+      "outdoor_sensor_ID": "2025",
+      "indoor_sensor_ID": "2047",
+      "photo_file_name": "CMUC_Church.jpg"
+    },
+    "CMUC_Centre_for_Peace": {
+      "outdoor_sensor_ID": "2025",
+      "indoor_sensor_ID": "2046",
+      "photo_file_name": "CMUC_CentreForPeace.jpg"
+    },
     "West_Vancouver_Memorial_Library": {
         "outdoor_sensor_ID": 2021,
         "indoor_sensor_ID": 2020,
@@ -73,5 +83,17 @@
         "outdoor_sensor_ID": "MOD-00627",
         "indoor_sensor_ID": "MOD-00621",
         "photo_file_name": "WestEnd_Photo.png"
+    },
+    "Marpole_Oakridge_Family_Place": {
+      "outdoor_sensor_ID": "2039",
+      "indoor_sensor_ID": "2036",
+      "photo_file_name": "Marpole.jpeg"
+    },
+
+    
+    "Parkgate_Library": {
+      "outdoor_sensor_ID": "2031",
+      "indoor_sensor_ID": "2048",
+      "photo_file_name": "Parkgate.jpeg"
     }
 }
