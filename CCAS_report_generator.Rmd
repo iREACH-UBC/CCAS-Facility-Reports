@@ -122,15 +122,14 @@ units <- list(
 #Rebuild POSIXct class to ensure openair behaves correctly
 mod_outdoor_data <- outdoor_data
 mod_outdoor_data$date <- as.POSIXct(
-  as.character(mod_outdoor_data$date),
+  mod_outdoor_data$date,
+  tz = "UTC"
 )
 mod_indoor_data <- indoor_data
 mod_indoor_data$date <- as.POSIXct(
-  as.character(mod_indoor_data$date)
+  mod_indoor_data$date,
+  tz = "UTC"
 )
-#This fixes the max bug but breaks hourly averages
-#All data points are being logged at occuring at 00:00 of each day
-#Currently max is acting as a 15min max
 
 
 # Hourly averages
