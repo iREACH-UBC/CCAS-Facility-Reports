@@ -105,6 +105,7 @@ indoor_data <- indoor_data %>%
     ~ ifelse(.x < 0, NA, .x)
 ))
 
+
 # Define pollutants and their units
 pollutants <- c("NO2", "NO", "CO2", "O3", "CO", "PM2_5")
 
@@ -117,9 +118,24 @@ units <- list(
   PM2_5 = "µg/m³"
 )
 
+
+#Rebuild POSIXct class to ensure openair behaves correctly
+mod_outdoor_data <- outdoor_data
+mod_outdoor_data$date <- as.POSIXct(
+  as.character(mod_outdoor_data$date),
+)
+mod_indoor_data <- indoor_data
+mod_indoor_data$date <- as.POSIXct(
+  as.character(mod_indoor_data$date)
+)
+#This fixes the max bug but breaks hourly averages
+#All data points are being logged at occuring at 00:00 of each day
+#Currently max is acting as a 15min max
+
+
 # Hourly averages
-outdoor_data_hr_avg <- timeAverage(outdoor_data, avg.time = "hour")
-indoor_data_hr_avg <- timeAverage(indoor_data, avg.time = "hour")
+outdoor_data_hr_avg <- timeAverage(mod_outdoor_data, avg.time = "hour")
+indoor_data_hr_avg <- timeAverage(mod_indoor_data, avg.time = "hour")
 
 # Calculate sensor uptime
 outdoor_uptime <- get_sensor_uptime(
@@ -197,26 +213,31 @@ make_aqhi_calendar_plot <- function(
 }
 
 # For both indoor and outdoor datasets
+
+
 get_diurnal_plots <- function(
     outdoor_hr_avg_dataset, indoor_hr_avg_dataset, pollutant_name,
     y_label_expression) {
   diurnal_outdoor <- timeVariation(outdoor_hr_avg_dataset,
     pollutant = pollutant_name,
     ylab = y_label_expression,
-    xlab = rep("Hour", 4), cols = "blue"
+    xlab = "Hour", cols = "blue"
   )[["plot"]][["hour"]]
 
   diurnal_indoor <- timeVariation(indoor_hr_avg_dataset,
     pollutant = pollutant_name,
     ylab = y_label_expression,
-    xlab = rep("Hour",4), cols = "red"
+    xlab = "Hour", cols = "red"
   )[["plot"]][["hour"]]
 
   list("outdoor_plot" = diurnal_outdoor, "indoor_plot" = diurnal_indoor)
+  
+  
 }
 
 # Uses specific format to plot
 plot_indoor_outdoor_diurnals <- function(diurnal_list, plot_title) {
+  
   xrange <- range(
     diurnal_list$outdoor_plot$x.limits,
     diurnal_list$indoor_plot$x.limits,
@@ -253,6 +274,8 @@ plot_indoor_outdoor_diurnals <- function(diurnal_list, plot_title) {
     y = unit(0.94, "npc"),  # move up/down (1 = top, 0 = bottom)
     gp = gpar(cex = 0.97, fontface = "plain")
   )
+  
+  
 }
 
 # Used for smoothing calendar plot colour scale
@@ -288,7 +311,7 @@ get_pollutant_table <- function(
   indoor_hr_avg_dataset, show_indoor_data
 ) {
   round_metrics <- function(x) ifelse(x < 1, round(x, 2), round(x, 0))
-
+  
   quantile75_outdoor <- round_metrics(quantile(
     outdoor_hr_avg_dataset[[pollutant_name]],
     na.rm = TRUE
@@ -337,6 +360,8 @@ get_pollutant_table <- function(
     "75th Percentile" = c(quantile75_outdoor, quantile75_indoor),
     check.names = FALSE
   )
+  
+  
   # Set negatives to zero
   pollutant_metrics[pollutant_metrics < 0] <- 0
 

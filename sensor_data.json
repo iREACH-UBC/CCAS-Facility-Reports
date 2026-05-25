@@ -1,4 +1,9 @@
 {
+    "Chief_Joe_Mathias_Centre": {
+      "outdoor_sensor_ID": 2024,
+      "indoor_sensor_ID": 2026,
+      "photo_file_name": "ChiefJoe_Photo.png"
+    },
     "CMUC_Church": {
       "outdoor_sensor_ID": "2025",
       "indoor_sensor_ID": "2047",
@@ -24,11 +29,7 @@
         "indoor_sensor_ID": 2037,
         "photo_file_name": "PowellRiver_Photo.png"
     },
-    "Chief_Joe_Mathias_Centre": {
-        "outdoor_sensor_ID": 2024,
-        "indoor_sensor_ID": 2026,
-        "photo_file_name": "ChiefJoe_Photo.png"
-    },
+
     "Squamish_Nation_Totem_Hall": {
         "outdoor_sensor_ID": 2032,
         "indoor_sensor_ID": 2049,
