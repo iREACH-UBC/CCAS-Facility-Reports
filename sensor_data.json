@@ -1,4 +1,30 @@
 {
+      "Marpole_Oakridge_Family_Place": {
+      "outdoor_sensor_ID": "2039",
+      "indoor_sensor_ID": "2036",
+      "photo_file_name": "Marpole.jpeg"
+    },
+    
+    "Squamish_Nation_Totem_Hall": {
+      "outdoor_sensor_ID": 2033,
+      "indoor_sensor_ID": 2049,
+      "photo_file_name": "SquamishNationTotemHall_Photo.png"
+    },
+    
+
+    "West_End_Community_Centre": {
+      "outdoor_sensor_ID": "MOD-00627",
+      "indoor_sensor_ID": "MOD-00621",
+      "photo_file_name": "WestEnd_Photo.png"
+    },
+    
+    
+    
+    "Bowen_Island_Public_Library": {
+      "outdoor_sensor_ID": 2030,
+      "indoor_sensor_ID": 2027,
+      "photo_file_name": "BowenIsland_Library_Photo.png"
+    },
     "Chief_Joe_Mathias_Centre": {
       "outdoor_sensor_ID": 2024,
       "indoor_sensor_ID": 2026,
@@ -29,21 +55,10 @@
         "indoor_sensor_ID": 2037,
         "photo_file_name": "PowellRiver_Photo.png"
     },
-
-    "Squamish_Nation_Totem_Hall": {
-        "outdoor_sensor_ID": 2032,
-        "indoor_sensor_ID": 2049,
-        "photo_file_name": "SquamishNationTotemHall_Photo.png"
-    },
     "Whistler_Public_Library": {
         "outdoor_sensor_ID": 2043,
         "indoor_sensor_ID": 2045,
         "photo_file_name": "Whistler_Photo.png"
-    },
-    "Bowen_Island_Public_Library": {
-        "outdoor_sensor_ID": 2030,
-        "indoor_sensor_ID": 2027,
-        "photo_file_name": "BowenIsland_Library_Photo.png"
     },
     "Bowen_Island_Community_Centre": {
         "outdoor_sensor_ID": 2030,
@@ -80,17 +95,6 @@
         "indoor_sensor_ID": "2028",
         "photo_file_name": "CentralLibrary_Photo.png"
     },
-    "West_End_Community_Centre": {
-        "outdoor_sensor_ID": "MOD-00627",
-        "indoor_sensor_ID": "MOD-00621",
-        "photo_file_name": "WestEnd_Photo.png"
-    },
-    "Marpole_Oakridge_Family_Place": {
-      "outdoor_sensor_ID": "2039",
-      "indoor_sensor_ID": "2036",
-      "photo_file_name": "Marpole.jpeg"
-    },
-
     
     "Parkgate_Library": {
       "outdoor_sensor_ID": "2031",

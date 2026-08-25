@@ -27,6 +27,6 @@ sensor_data_is_from_git <- function(column_names) {
 #' @return TRUE if data columns align with manually calibrated data
 #'  columns, FALSE otherwise.
 sensor_data_manually_generated <- function(column_names) {
-  manual_data_cols <- c("date", "CO", "NO", "NO2", "O3", "CO2", "PM2_5")
-  isTRUE(all.equal(column_names, manual_data_cols))
+  required_cols <- c("date", "CO", "NO", "NO2", "O3", "CO2", "PM2_5")
+  all(required_cols %in% column_names)
 }
